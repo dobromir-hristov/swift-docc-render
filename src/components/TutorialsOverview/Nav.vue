@@ -14,7 +14,7 @@
       <template slot="default">
         <slot />
       </template>
-      <template slot="subhead">Tutorials</template>
+      <template slot="subhead"><slot name="subhead">Tutorials</slot></template>
     </NavTitleContainer>
     <template slot="menu-items">
       <li>

@@ -21,7 +21,7 @@
           :to="urlWithParams"
         >
           <template slot="default">{{ technology }}</template>
-          <template slot="subhead">Tutorials</template>
+          <template slot="subhead"><slot name="subheading">Tutorials</slot></template>
         </NavTitleContainer>
       </ReferenceUrlProvider>
     </template>

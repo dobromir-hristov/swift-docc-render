@@ -28,7 +28,7 @@ import {
 
 import TopicStore from 'docc-render/stores/TopicStore';
 import Article from 'docc-render/components/Article.vue';
-import Tutorial from 'docc-render/components/Tutorial.vue';
+import Tutorial from 'theme/components/Tutorial.vue';
 
 import performanceMetrics from 'docc-render/mixins/performanceMetrics';
 import onPageLoadScrollToFragment from 'docc-render/mixins/onPageLoadScrollToFragment';
