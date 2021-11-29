@@ -41,9 +41,9 @@
 <script>
 import ContentNode from 'docc-render/components/DocumentationTopic/ContentNode.vue';
 import WordBreak from 'docc-render/components/WordBreak.vue';
+import TopicsLinkBlock from 'theme/components/DocumentationTopic/TopicsLinkBlock.vue';
 import ContentTable from './ContentTable.vue';
 import ContentTableSection from './ContentTableSection.vue';
-import TopicsLinkBlock from './TopicsLinkBlock.vue';
 
 export default {
   name: 'TopicsTable',
