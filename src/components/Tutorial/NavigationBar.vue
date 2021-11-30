@@ -21,7 +21,7 @@
           :to="urlWithParams"
         >
           <template slot="default">{{ technology }}</template>
-          <template slot="subhead"><slot name="subheading">Tutorials</slot></template>
+          <template slot="subhead">{{ subheading }}</template>
         </NavTitleContainer>
       </ReferenceUrlProvider>
     </template>
@@ -96,6 +96,10 @@ export default {
     rootReference: {
       type: String,
       required: true,
+    },
+    subheading: {
+      type: String,
+      default: 'Tutorials',
     },
   },
   data() {

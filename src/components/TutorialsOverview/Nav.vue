@@ -14,7 +14,7 @@
       <template slot="default">
         <slot />
       </template>
-      <template slot="subhead"><slot name="subhead">Tutorials</slot></template>
+      <template slot="subhead">{{ subheading }}</template>
     </NavTitleContainer>
     <template slot="menu-items">
       <li>
@@ -47,6 +47,10 @@ export default {
     sections: {
       type: Array,
       require: true,
+    },
+    subheading: {
+      type: String,
+      default: 'Tutorials',
     },
   },
   methods: {
