@@ -11,9 +11,7 @@
 <template>
   <NavBase>
     <NavTitleContainer :to="buildUrl($route.path, $route.query)">
-      <template slot="default">
-        <slot />
-      </template>
+      <template slot="default"><slot /></template>
       <template slot="subhead">{{ subheading }}</template>
     </NavTitleContainer>
     <template slot="menu-items">

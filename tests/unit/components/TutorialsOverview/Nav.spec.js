@@ -6,9 +6,10 @@
  *
  * See https://swift.org/LICENSE.txt for license information
  * See https://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import {
+  RouterLinkStub,
   shallowMount,
 } from '@vue/test-utils';
 import Nav from 'docc-render/components/TutorialsOverview/Nav.vue';
@@ -50,6 +51,10 @@ describe('nav', () => {
       mocks,
       propsData,
       slots,
+      stubs: {
+        NavTitleContainer,
+        'router-link': RouterLinkStub,
+      },
     });
   });
 
@@ -62,8 +67,13 @@ describe('nav', () => {
     const title = wrapper.find(NavTitleContainer);
     expect(title.exists()).toBe(true);
     expect(title.props('to')).toEqual('/tutorials/swiftui?context=foo');
+    expect(title.text().replace(/\s+/, ' ')).toBe('SwiftUI Tutorials');
+  });
 
-    expect(title.text()).toBe('SwiftUI Tutorials');
+  it('allows overriding the subheading', () => {
+    wrapper.setProps({ subheading: 'Stories' });
+    const title = wrapper.find(NavTitleContainer);
+    expect(title.text().replace(/\s+/, ' ')).toBe('SwiftUI Stories');
   });
 
   it('renders TutorialsNavigation and passes all sections to it', () => {

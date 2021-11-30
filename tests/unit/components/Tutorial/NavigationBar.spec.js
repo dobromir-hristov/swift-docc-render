@@ -6,7 +6,7 @@
  *
  * See https://swift.org/LICENSE.txt for license information
  * See https://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import {
   RouterLinkStub,
@@ -100,6 +100,7 @@ describe('NavigationBar', () => {
       'router-link': RouterLinkStub,
       ReferenceUrlProvider,
       NavBase,
+      NavTitleContainer,
     },
   };
 
@@ -139,8 +140,15 @@ describe('NavigationBar', () => {
       const title = wrapper.find(NavTitleContainer);
       expect(title.exists()).toBe(true);
       expect(title.text()).toContain('Augmented Reality');
+      expect(title.text()).toContain('Tutorials');
 
       expect(title.props('to')).toEqual(references[rootReference].url);
+    });
+
+    it('allows overriding the subheading', () => {
+      wrapper.setProps({ subheading: 'Stories' });
+      const title = wrapper.find(NavTitleContainer);
+      expect(title.text()).toContain('Stories');
     });
 
     it('renders a separator', () => {
