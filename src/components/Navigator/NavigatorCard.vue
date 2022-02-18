@@ -148,7 +148,7 @@ export default {
   computed: {
     INDEX_ROOT_KEY: () => INDEX_ROOT_KEY,
     filterPattern: ({ filter }) => (!filter
-      ? undefined
+      ? null
       // remove the `g` for global, as that causes bugs when matching
       : new RegExp(safeHighlightPattern(filter), 'i')),
     /**

@@ -142,12 +142,15 @@ describe('NavigatorCard', () => {
       itemSize: LEAF_SIZES.min,
       keyField: 'uid',
     });
+    expect(wrapper.find(RecycleScroller).attributes('aria-label')).toBe('Sidebar Tree Navigator');
     // assert CardItem
     const items = wrapper.findAll(NavigatorCardItem);
     expect(items).toHaveLength(4);
     expect(items.at(0).props()).toEqual({
       expanded: true,
       isActive: false,
+      isRendered: false,
+      filterPattern: null,
       isBold: true,
       item: root0,
     });
@@ -196,6 +199,8 @@ describe('NavigatorCard', () => {
       isActive: false,
       isBold: false,
       item,
+      filterPattern: null,
+      isRendered: false,
     });
     unopenedItem.vm.$emit('toggle', item);
     await wrapper.vm.$nextTick();
