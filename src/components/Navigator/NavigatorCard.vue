@@ -1,7 +1,7 @@
 <!--
   This source file is part of the Swift.org open source project
 
-  Copyright (c) 2021 Apple Inc. and the Swift project authors
+  Copyright (c) 2022 Apple Inc. and the Swift project authors
   Licensed under Apache License v2.0 with Runtime Library Exception
 
   See https://swift.org/LICENSE.txt for license information
@@ -24,6 +24,7 @@
     <div class="card-body">
       <RecycleScroller
         v-show="nodesToRender.length"
+        :id="scrollLockID"
         ref="scroller"
         class="scroller"
         aria-label="Sidebar Tree Navigator"
@@ -81,7 +82,7 @@ import { clone } from 'docc-render/utils/data';
 import { waitFrames } from 'docc-render/utils/loading';
 import debounce from 'docc-render/utils/debounce';
 import { sessionStorage } from 'docc-render/utils/storage';
-import { INDEX_ROOT_KEY, LEAF_SIZES } from 'docc-render/constants/sidebar';
+import { INDEX_ROOT_KEY, SIDEBAR_ITEM_SIZE } from 'docc-render/constants/sidebar';
 import { safeHighlightPattern } from 'docc-render/utils/search-utils';
 import NavigatorLeafIcon from 'docc-render/components/Navigator/NavigatorLeafIcon.vue';
 import NavigatorCardItem from 'docc-render/components/Navigator/NavigatorCardItem.vue';
@@ -135,6 +136,10 @@ export default {
       type: String,
       default: '',
     },
+    scrollLockID: {
+      type: String,
+      default: '',
+    },
   },
   data() {
     return {
@@ -154,7 +159,7 @@ export default {
     /**
      * Return the item size for the Scroller element.
      */
-    itemSize: () => LEAF_SIZES.min,
+    itemSize: () => SIDEBAR_ITEM_SIZE,
     /**
      * Generates a map of the children, with the uid as the key.
      * @return {Object.<string, NavigatorFlatItem>}
@@ -430,8 +435,18 @@ export default {
      */
     restorePersistedState() {
       const technology = sessionStorage.get(STORAGE_KEYS.technology);
+      const nodesToRender = sessionStorage.get(STORAGE_KEYS.nodesToRender, []);
+      const filter = sessionStorage.get(STORAGE_KEYS.filter, '');
+
+      // if for some reason there are no nodes and no filter, we can assume its bad cache
+      if (!nodesToRender.length && !filter) {
+        this.trackOpenNodes(this.nodeChangeDeps);
+        return;
+      }
+      // make sure all nodes exist in the childrenMap
+      const allNodesMatch = nodesToRender.every(uid => this.childrenMap[uid]);
       // if the technology does not match, do not use the persisted values
-      if (technology !== this.technology) {
+      if (technology !== this.technology || !allNodesMatch) {
         this.trackOpenNodes(this.nodeChangeDeps);
         return;
       }
@@ -440,11 +455,10 @@ export default {
       // create the openNodes map
       this.openNodes = Object.fromEntries(openNodes.map(n => [n, true]));
       // get all the nodes to render
-      const nodesToRender = sessionStorage.get(STORAGE_KEYS.nodesToRender, []);
       // generate the array of flat children objects to render
       this.nodesToRender = nodesToRender.map(uid => this.childrenMap[uid]);
       // finally fetch any previously assigned filters
-      this.filter = sessionStorage.get(STORAGE_KEYS.filter, '');
+      this.filter = filter;
       // scroll to the active element
       this.scrollToElement();
     },

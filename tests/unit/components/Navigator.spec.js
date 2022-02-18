@@ -64,6 +64,7 @@ const technology = {
 };
 
 const references = {
+  technologies: { kind: 'technologies' },
   root: { url: 'root' },
   first: { url: 'first' },
   second: { url: 'second' },
@@ -89,6 +90,7 @@ const defaultProps = {
   parentTopicIdentifiers,
   technology,
   references,
+  scrollLockID: 'foo',
 };
 
 const fauxAnchor = document.createElement('DIV');
@@ -116,6 +118,7 @@ describe('Navigator', () => {
       type: TopicTypes.module,
       technology: technology.title,
       technologyPath: technology.path,
+      scrollLockID: defaultProps.scrollLockID,
     });
     expect(wrapper.find('.loading-placeholder').exists()).toBe(false);
   });
@@ -144,7 +147,19 @@ describe('Navigator', () => {
       type: TopicTypes.module,
       technology: fallbackTechnology.title,
       technologyPath: fallbackTechnology.url,
+      scrollLockID: defaultProps.scrollLockID,
     });
+  });
+
+  it('strips out possible technology URLs from the activePath', () => {
+    const wrapper = createWrapper({
+      propsData: {
+        parentTopicIdentifiers: ['technologies'].concat(parentTopicIdentifiers),
+      },
+    });
+    expect(wrapper.find(NavigatorCard).props('activePath')).toEqual([
+      references.first.url, references.second.url, mocks.$route.path,
+    ]);
   });
 
   it('re-emits the `@close` event', () => {

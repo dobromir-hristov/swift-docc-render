@@ -1,7 +1,7 @@
 /**
  * This source file is part of the Swift.org open source project
  *
- * Copyright (c) 2021 Apple Inc. and the Swift project authors
+ * Copyright (c) 2022 Apple Inc. and the Swift project authors
  * Licensed under Apache License v2.0 with Runtime Library Exception
  *
  * See https://swift.org/LICENSE.txt for license information
@@ -13,7 +13,7 @@ import { shallowMount } from '@vue/test-utils';
 import { TopicTypes } from '@/constants/TopicTypes';
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'intersection-observer';
-import { INDEX_ROOT_KEY, LEAF_SIZES } from '@/constants/sidebar';
+import { INDEX_ROOT_KEY, SIDEBAR_ITEM_SIZE } from '@/constants/sidebar';
 import NavigatorCardItem from '@/components/Navigator/NavigatorCardItem.vue';
 import { sessionStorage } from 'docc-render/utils/storage';
 import Reference from '@/components/ContentNode/Reference.vue';
@@ -22,6 +22,8 @@ import { flushPromises } from '../../../../test-utils';
 jest.mock('docc-render/utils/debounce', () => jest.fn(fn => fn));
 jest.mock('docc-render/utils/storage');
 jest.mock('docc-render/utils/loading');
+
+sessionStorage.get.mockImplementation((key, fallback) => fallback);
 
 const RecycleScrollerStub = {
   props: RecycleScroller.props,
@@ -107,6 +109,7 @@ const defaultProps = {
   children,
   activePath,
   type: TopicTypes.module,
+  scrollLockID: 'foo',
 };
 
 const createWrapper = ({ propsData, ...others } = {}) => shallowMount(NavigatorCard, {
@@ -132,17 +135,19 @@ describe('NavigatorCard', () => {
     expect(wrapper.find(Reference).props('url')).toEqual(defaultProps.technologyPath);
     expect(wrapper.find('.card-link').text()).toBe(defaultProps.technology);
     // assert scroller
-    expect(wrapper.find(RecycleScroller).props()).toMatchObject({
+    const scroller = wrapper.find(RecycleScroller);
+    expect(scroller.props()).toMatchObject({
       items: [
         root0,
         root0Child0,
         root0Child1, // we skip the grandchild, its parent is not open
         root1,
       ],
-      itemSize: LEAF_SIZES.min,
+      itemSize: SIDEBAR_ITEM_SIZE,
       keyField: 'uid',
     });
     expect(wrapper.find(RecycleScroller).attributes('aria-label')).toBe('Sidebar Tree Navigator');
+    expect(scroller.attributes('id')).toEqual(defaultProps.scrollLockID);
     // assert CardItem
     const items = wrapper.findAll(NavigatorCardItem);
     expect(items).toHaveLength(4);
@@ -466,6 +471,29 @@ describe('NavigatorCard', () => {
     sessionStorage.get.mockImplementation((key) => {
       if (key === STORAGE_KEYS.technology) return 'some-other';
       if (key === STORAGE_KEYS.nodesToRender) return [root0.uid];
+      return '';
+    });
+    const wrapper = createWrapper();
+    // assert we are render more than just the single item in the store
+    expect(wrapper.findAll(NavigatorCardItem)).toHaveLength(4);
+  });
+
+  it('does not restore the state, if the nodesToRender do not match what we have', () => {
+    sessionStorage.get.mockImplementation((key) => {
+      if (key === STORAGE_KEYS.technology) return defaultProps.technology;
+      if (key === STORAGE_KEYS.nodesToRender) return [root0.uid, 'something-different'];
+      return '';
+    });
+    const wrapper = createWrapper();
+    // assert we are render more than just the single item in the store
+    expect(wrapper.findAll(NavigatorCardItem)).toHaveLength(4);
+  });
+
+  it('does not restore the state, if the nodesToRender and filter are empty', () => {
+    sessionStorage.get.mockImplementation((key) => {
+      if (key === STORAGE_KEYS.technology) return defaultProps.technology;
+      if (key === STORAGE_KEYS.nodesToRender) return [];
+      if (key === STORAGE_KEYS.filter) return '';
       return '';
     });
     const wrapper = createWrapper();
