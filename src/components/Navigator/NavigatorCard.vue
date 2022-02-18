@@ -476,16 +476,12 @@ export default {
         this.$refs.scroller.scrollToItem(index);
       }
     },
-    // TODO: This is very much a test
     handleBlur(event) {
       // if there is a related target, do nothing
       if (event.relatedTarget !== null) return;
       // if there is no related target re-focus the item
-      console.log('lost focus', event.target);
       const { y } = event.target.getBoundingClientRect();
-      console.log({ y });
       if (y < 0) {
-        console.log('not visible');
         return;
       }
       event.target.focus({
