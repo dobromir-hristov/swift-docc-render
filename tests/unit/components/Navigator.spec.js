@@ -162,6 +162,15 @@ describe('Navigator', () => {
     ]);
   });
 
+  it('renders the root path as activePath when there is no parentTopicIdentifiers', () => {
+    const wrapper = createWrapper({
+      propsData: {
+        parentTopicIdentifiers: [],
+      },
+    });
+    expect(wrapper.find(NavigatorCard).props('activePath')).toEqual([mocks.$route.path]);
+  });
+
   it('re-emits the `@close` event', () => {
     const wrapper = createWrapper();
     wrapper.find(NavigatorCard).vm.$emit('close');
@@ -210,9 +219,9 @@ describe('Navigator', () => {
       // root
       {
         childUIDs: [
-          -1875139512,
-          -1874215990,
-          -1873292468,
+          745124197,
+          746047719,
+          746971241,
         ],
         depth: 0,
         index: 0,
@@ -221,57 +230,57 @@ describe('Navigator', () => {
         parent: INDEX_ROOT_KEY,
         path: '/foo/child0',
         title: 'Child0',
-        uid: -1964988922,
+        uid: 551503843,
       },
       {
         childUIDs: [],
         depth: 1,
         index: 0,
         type: 'tutorial',
-        parent: -1964988922,
+        parent: 551503843,
         siblingsCount: 3,
         path: '/foo/child0/grandchild0',
         title: 'Child0_GrandChild0',
-        uid: -1875139512,
+        uid: 745124197,
       },
       {
         childUIDs: [
-          734426441,
+          1489150959,
         ],
         depth: 1,
         index: 1,
         type: 'tutorial',
-        parent: -1964988922,
+        parent: 551503843,
         siblingsCount: 3,
         path: '/foo/child0/grandchild1',
         title: 'Child0_GrandChild1',
-        uid: -1874215990,
+        uid: 746047719,
       },
       {
         childUIDs: [],
         depth: 2,
         index: 0,
         type: 'tutorial',
-        parent: -1874215990,
+        parent: 746047719,
         siblingsCount: 1,
         path: '/foo/child0/grandchild0/greatgrandchild0',
         title: 'Child0_GrandChild0_GreatGrandChild0',
-        uid: 734426441,
+        uid: 1489150959,
       },
       {
         childUIDs: [],
         depth: 1,
         index: 2,
         type: 'tutorial',
-        parent: -1964988922,
+        parent: 551503843,
         siblingsCount: 3,
         path: '/foo/child0/grandchild2',
         title: 'Child0_GrandChild2',
-        uid: -1873292468,
+        uid: 746971241,
       },
       {
         childUIDs: [
-          92281571,
+          -134251586,
         ],
         depth: 0,
         index: 1,
@@ -280,18 +289,18 @@ describe('Navigator', () => {
         siblingsCount: 2,
         path: '/foo/child1/',
         title: 'Child1',
-        uid: -799457779,
+        uid: -97593392,
       },
       {
         childUIDs: [],
         depth: 1,
         index: 0,
         type: 'method',
-        parent: -799457779,
+        parent: -97593392,
         siblingsCount: 1,
         path: '/foo/child1/grandchild0',
         title: 'Child1_GrandChild0',
-        uid: 92281571,
+        uid: -134251586,
       },
     ]);
   });
