@@ -253,8 +253,8 @@ export default {
       filter,
       selectedTags,
     ]),
-    hasFilter({ filter, selectedTags }) {
-      return Boolean(filter.length || selectedTags.length);
+    hasFilter({ debouncedFilter, selectedTags }) {
+      return Boolean(debouncedFilter.length || selectedTags.length);
     },
   },
   created() {
