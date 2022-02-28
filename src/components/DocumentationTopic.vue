@@ -11,13 +11,13 @@
 <template>
   <div class="doc-topic">
     <main class="main" id="main" role="main" tabindex="0">
-          <DocumentationHero :type="symbolKind || role">
-            <slot name="above-title" />
-            <Title :eyebrow="roleHeading">{{ title }}</Title>
-            <Abstract v-if="abstract" :content="abstract" />
-          </DocumentationHero>
-          <div class="container content-grid" :class="{ 'full-width': hideSummary }">
-            <Description :hasOverview="hasOverview">
+      <DocumentationHero :type="symbolKind || role">
+        <slot name="above-title" />
+        <Title :eyebrow="roleHeading">{{ title }}</Title>
+        <Abstract v-if="abstract" :content="abstract" />
+      </DocumentationHero>
+      <div class="container content-grid" :class="{ 'full-width': hideSummary }">
+        <Description :hasOverview="hasOverview">
           <RequirementMetadata
             v-if="isRequirement"
             :defaultImplementationsCount="defaultImplementationsCount"
