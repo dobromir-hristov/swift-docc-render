@@ -1,7 +1,7 @@
 <!--
   This source file is part of the Swift.org open source project
 
-  Copyright (c) 2021 Apple Inc. and the Swift project authors
+  Copyright (c) 2022 Apple Inc. and the Swift project authors
   Licensed under Apache License v2.0 with Runtime Library Exception
 
   See https://swift.org/LICENSE.txt for license information
@@ -14,13 +14,13 @@
       v-if="!isFetching"
       :technology="technology.title"
       :technology-path="technology.path || technology.url"
-      :kind="kind"
+      :type="type"
       :children="flatChildren"
       :active-path="activePath"
-      :show-extended-info="showExtraInfo"
+      :scrollLockID="scrollLockID"
       @close="$emit('close')"
     />
-    <div v-else>
+    <div v-else class="loading-placeholder">
       Fetching...
     </div>
   </div>
@@ -31,13 +31,13 @@ import NavigatorCard from 'docc-render/components/Navigator/NavigatorCard.vue';
 import throttle from 'docc-render/utils/throttle';
 import { INDEX_ROOT_KEY } from 'docc-render/constants/sidebar';
 import { baseNavStickyAnchorId } from 'docc-render/constants/nav';
-import { TopicKind } from 'docc-render/constants/kinds';
+import { TopicTypes } from 'docc-render/constants/TopicTypes';
 
 /**
  * @typedef NavigatorFlatItem
  * @property {number} uid - generated UID
  * @property {string} title - title of symbol
- * @property {string} kind - symbol kind, used for the icon
+ * @property {string} type - symbol type, used for the icon
  * @property {array} abstract - symbol abstract
  * @property {string} path - path to page, used in navigation
  * @property {number} parent - parent UID
@@ -59,10 +59,6 @@ export default {
       type: Array,
       required: true,
     },
-    showExtraInfo: {
-      type: Boolean,
-      default: false,
-    },
     technology: {
       type: Object,
       required: true,
@@ -74,6 +70,10 @@ export default {
     references: {
       type: Object,
       default: () => {},
+    },
+    scrollLockID: {
+      type: String,
+      default: '',
     },
   },
   data() {
@@ -87,11 +87,16 @@ export default {
   computed: {
     // gets the paths for each parent in the breadcrumbs
     parentTopicReferences({ references, parentTopicIdentifiers }) {
-      return parentTopicIdentifiers.map(identifier => references[identifier].url);
+      return parentTopicIdentifiers.map(identifier => references[identifier]);
     },
     // splits out the top-level technology crumb
     activePath({ parentTopicReferences, $route }) {
-      return parentTopicReferences.slice(1).concat($route.path);
+      let itemsToSlice = 1;
+      // if the first item is a `technology`, slice off it and the technology itself
+      if (parentTopicReferences[0].kind === 'technologies') {
+        itemsToSlice = 2;
+      }
+      return parentTopicReferences.slice(itemsToSlice).map(r => r.url).concat($route.path);
     },
     /**
      * Recomputes the list of flat children.
@@ -103,7 +108,7 @@ export default {
     /**
      * The root item is always a module
      */
-    kind: () => TopicKind.module,
+    type: () => TopicTypes.module,
   },
   methods: {
     /**
@@ -117,7 +122,7 @@ export default {
       ), 0);
     },
     /**
-     * @param {{path: string, kind: string, title: string, children?: [] }[]} childrenNodes
+     * @param {{path: string, type: string, title: string, children?: [] }[]} childrenNodes
      * @param {NavigatorFlatItem | null} parent
      * @param {Number} depth
      * @return {NavigatorFlatItem[]}
@@ -186,16 +191,22 @@ export default {
 .navigator {
   position: sticky;
   top: $nav-height;
-  max-height: calc(100vh - #{$nav-height} - var(--sticky-top-offset));
-  height: 100%;
+  height: calc(100vh - #{$nav-height} - var(--sticky-top-offset));
   box-sizing: border-box;
-  transition: max-height 0.3s linear;
+  transition: height 0.3s linear;
   border-left: 1px solid var(--color-grid);
 
   @include breakpoint(small) {
     position: static;
-    max-height: 100%;
+    height: 100%;
     border-left: none;
+    transition: none;
   }
+}
+
+.loading-placeholder {
+  color: var(--color-figure-gray-secondary);
+  padding: 12px;
+  @include font-styles(body-reduced);
 }
 </style>

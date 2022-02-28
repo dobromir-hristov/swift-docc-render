@@ -1,19 +1,19 @@
 /**
  * This source file is part of the Swift.org open source project
  *
- * Copyright (c) 2021 Apple Inc. and the Swift project authors
+ * Copyright (c) 2022 Apple Inc. and the Swift project authors
  * Licensed under Apache License v2.0 with Runtime Library Exception
  *
  * See https://swift.org/LICENSE.txt for license information
  * See https://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 import NavigatorCard, { STORAGE_KEYS } from '@/components/Navigator/NavigatorCard.vue';
 import { shallowMount } from '@vue/test-utils';
-import { TopicKind } from '@/constants/kinds';
+import { TopicTypes } from '@/constants/TopicTypes';
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'intersection-observer';
-import { LEAF_SIZES } from '@/constants/sidebar';
+import { SIDEBAR_ITEM_SIZE } from '@/constants/sidebar';
 import NavigatorCardItem from '@/components/Navigator/NavigatorCardItem.vue';
 import { sessionStorage } from 'docc-render/utils/storage';
 import Reference from '@/components/ContentNode/Reference.vue';
@@ -23,6 +23,8 @@ jest.mock('docc-render/utils/debounce', () => jest.fn(fn => fn));
 jest.mock('docc-render/utils/storage');
 jest.mock('docc-render/utils/loading');
 
+sessionStorage.get.mockImplementation((key, fallback) => fallback);
+
 const RecycleScrollerStub = {
   props: RecycleScroller.props,
   template: '<div class="vue-recycle-scroller-stub"><template v-for="item in items"><slot :item="item" /></template></div>',
@@ -31,7 +33,7 @@ const RecycleScrollerStub = {
   },
 };
 const root0 = {
-  kind: 'overview',
+  type: 'overview',
   path: '/tutorials/fookit',
   title: 'TopLevel',
   uid: 0,
@@ -45,7 +47,7 @@ const root0 = {
 };
 
 const root0Child0 = {
-  kind: 'tutorial',
+  type: 'tutorial',
   path: '/tutorials/fookit/first-child-depth-1',
   title: 'First Child, Depth 1',
   uid: 1,
@@ -55,7 +57,7 @@ const root0Child0 = {
   childUIDs: [],
 };
 const root0Child1 = {
-  kind: 'tutorial',
+  type: 'tutorial',
   path: '/tutorials/fookit/second-child-depth-1',
   title: 'Second Child, Depth 1',
   uid: 2,
@@ -67,7 +69,7 @@ const root0Child1 = {
   ],
 };
 const root0Child1GrandChild0 = {
-  kind: 'tutorial',
+  type: 'tutorial',
   path: '/tutorials/fookit/second-child-depth-1/first-child-depth-2',
   title: 'First Child, Depth 2',
   uid: 3,
@@ -81,7 +83,7 @@ const root1 = {
     text: 'Create a tutorial.',
     type: 'text',
   }],
-  kind: 'article',
+  type: 'article',
   path: '/documentation/fookit/gettingstarted',
   title: 'Getting Started',
   uid: 4,
@@ -106,8 +108,8 @@ const defaultProps = {
   technologyPath: '/path/to/technology',
   children,
   activePath,
-  showExtendedInfo: false,
-  kind: TopicKind.module,
+  type: TopicTypes.module,
+  scrollLockID: 'foo',
 };
 
 const createWrapper = ({ propsData, ...others } = {}) => shallowMount(NavigatorCard, {
@@ -128,21 +130,23 @@ describe('NavigatorCard', () => {
   });
   it('renders the NavigatorCard', () => {
     const wrapper = createWrapper();
-    expect(wrapper.find('.card-icon').props('kind')).toEqual(defaultProps.kind);
+    expect(wrapper.find('.card-icon').props('type')).toEqual(defaultProps.type);
     // assert link
     expect(wrapper.find(Reference).props('url')).toEqual(defaultProps.technologyPath);
     expect(wrapper.find('.card-link').text()).toBe(defaultProps.technology);
     // assert scroller
-    expect(wrapper.find(RecycleScroller).props()).toMatchObject({
+    const scroller = wrapper.find(RecycleScroller);
+    expect(scroller.props()).toMatchObject({
       items: [
         root0,
         root0Child0,
         root0Child1, // we skip the grandchild, its parent is not open
         root1,
       ],
-      itemSize: LEAF_SIZES.min,
+      itemSize: SIDEBAR_ITEM_SIZE,
       keyField: 'uid',
     });
+    expect(scroller.attributes('id')).toEqual(defaultProps.scrollLockID);
     // assert CardItem
     const items = wrapper.findAll(NavigatorCardItem);
     expect(items).toHaveLength(4);
@@ -151,19 +155,9 @@ describe('NavigatorCard', () => {
       isActive: false,
       isBold: true,
       item: root0,
-      showExtendedInfo: false,
     });
     // assert no-items-wrapper
     expect(wrapper.find('.no-items-wrapper').exists()).toBe(false);
-  });
-
-  it('determines the itemSize', async () => {
-    const wrapper = createWrapper();
-    const scroller = wrapper.find(RecycleScroller);
-    expect(scroller.props('itemSize')).toBe(LEAF_SIZES.min);
-    wrapper.setProps({ showExtendedInfo: true });
-    await wrapper.vm.$nextTick();
-    expect(scroller.props('itemSize')).toBe(LEAF_SIZES.max);
   });
 
   it('hides the RecycleScroller, if no items to show', async () => {
@@ -207,7 +201,6 @@ describe('NavigatorCard', () => {
       isActive: false,
       isBold: false,
       item,
-      showExtendedInfo: false,
     });
     unopenedItem.vm.$emit('toggle', item);
     await wrapper.vm.$nextTick();
@@ -285,6 +278,31 @@ describe('NavigatorCard', () => {
     expect(all.at(1).props('item')).toEqual(root0Child1);
     expect(all.at(2).props('item')).toEqual(root0Child1GrandChild0);
     expect(RecycleScrollerStub.methods.scrollToItem).toHaveBeenCalledWith(0);
+  });
+
+  it('allows opening an item, that has a filter match', async () => {
+    const wrapper = createWrapper();
+    const filter = wrapper.find('input');
+    await flushPromises();
+    filter.setValue(root0Child1.title);
+    await flushPromises();
+    // assert match and all if it's parents are visible
+    let all = wrapper.findAll(NavigatorCardItem);
+    expect(all).toHaveLength(2);
+    expect(all.at(0).props('item')).toEqual(root0);
+    expect(all.at(1).props('item')).toEqual(root0Child1);
+    // open the last match
+    all.at(1).vm.$emit('toggle', root0Child1);
+    await flushPromises();
+    all = wrapper.findAll(NavigatorCardItem);
+    // assert the last match child is visible
+    expect(all).toHaveLength(3);
+    expect(all.at(2).props('item')).toEqual(root0Child1GrandChild0);
+    // close the match
+    all.at(1).vm.$emit('toggle', root0Child1);
+    await flushPromises();
+    // assert there are again only 2 matches
+    expect(wrapper.findAll(NavigatorCardItem)).toHaveLength(2);
   });
 
   it('removes duplicate items, when multiple items with the same parent match the filter', async () => {
@@ -409,16 +427,6 @@ describe('NavigatorCard', () => {
     expect(wrapper.emitted('close')).toHaveLength(1);
   });
 
-  it('applies a class and passes the `showExtendedInfo` prop', () => {
-    const wrapper = createWrapper({
-      propsData: {
-        showExtendedInfo: true,
-      },
-    });
-    expect(wrapper.find('.head-wrapper').classes()).toContain('extra-info');
-    expect(wrapper.find(NavigatorCardItem).props('showExtendedInfo')).toBe(true);
-  });
-
   it('persists the filtered state', async () => {
     const wrapper = createWrapper();
     // called for the initial 3 things
@@ -458,6 +466,29 @@ describe('NavigatorCard', () => {
     sessionStorage.get.mockImplementation((key) => {
       if (key === STORAGE_KEYS.technology) return 'some-other';
       if (key === STORAGE_KEYS.nodesToRender) return [root0.uid];
+      return '';
+    });
+    const wrapper = createWrapper();
+    // assert we are render more than just the single item in the store
+    expect(wrapper.findAll(NavigatorCardItem)).toHaveLength(4);
+  });
+
+  it('does not restore the state, if the nodesToRender do not match what we have', () => {
+    sessionStorage.get.mockImplementation((key) => {
+      if (key === STORAGE_KEYS.technology) return defaultProps.technology;
+      if (key === STORAGE_KEYS.nodesToRender) return [root0.uid, 'something-different'];
+      return '';
+    });
+    const wrapper = createWrapper();
+    // assert we are render more than just the single item in the store
+    expect(wrapper.findAll(NavigatorCardItem)).toHaveLength(4);
+  });
+
+  it('does not restore the state, if the nodesToRender and filter are empty', () => {
+    sessionStorage.get.mockImplementation((key) => {
+      if (key === STORAGE_KEYS.technology) return defaultProps.technology;
+      if (key === STORAGE_KEYS.nodesToRender) return [];
+      if (key === STORAGE_KEYS.filter) return '';
       return '';
     });
     const wrapper = createWrapper();

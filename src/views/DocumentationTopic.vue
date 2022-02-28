@@ -23,15 +23,15 @@
         :isSymbolBeta="isSymbolBeta"
         :currentTopicTags="topicProps.tags"
         :references="topicProps.references"
+        :isWideFormat="enableNavigator"
         @toggle-sidenav="isSideNavOpen = !isSideNavOpen"
       />
-      <AdjustableSidebarWidth
-        class="full-width-container"
-        :open-externally.sync="isSideNavOpen"
-        :hide-sidebar="isTargetIDE"
-        @width-change="handleWidthChange"
+      <component
+        :is="enableNavigator ? 'AdjustableSidebarWidth' : 'div'"
+        v-bind="sidebarProps"
+        v-on="sidebarListeners"
       >
-        <template #aside>
+        <template #aside="{ scrollLockID }">
           <aside class="doc-topic-aside">
             <NavigatorDataProvider
               :interface-language="topicProps.interfaceLanguage"
@@ -39,34 +39,33 @@
             >
               <template #default="slotProps">
                 <Navigator
-                  :show-extra-info="showExtraNavigatorInfo"
                   :parent-topic-identifiers="navigatorParentTopicIdentifiers"
                   :technology="slotProps.technology || technology"
                   :is-fetching="slotProps.isFetching"
                   :references="topicProps.references"
+                  :scrollLockID="scrollLockID"
                   @close="isSideNavOpen = false"
                 />
               </template>
             </NavigatorDataProvider>
           </aside>
         </template>
-        <template #default>
-          <Topic
-            v-bind="topicProps"
-            :key="topicKey"
-            :objcPath="objcPath"
-            :swiftPath="swiftPath"
-            :isSymbolDeprecated="isSymbolDeprecated"
-            :isSymbolBeta="isSymbolBeta"
-          />
-        </template>
-      </AdjustableSidebarWidth>
+        <Topic
+          v-bind="topicProps"
+          :key="topicKey"
+          :objcPath="objcPath"
+          :swiftPath="swiftPath"
+          :isSymbolDeprecated="isSymbolDeprecated"
+          :isSymbolBeta="isSymbolBeta"
+        />
+      </component>
     </template>
   </CodeTheme>
 </template>
 
 <script>
 import { apply } from 'docc-render/utils/json-patch';
+import { getSetting } from 'docc-render/utils/theme-settings';
 import {
   clone,
   fetchDataForRouteEnter,
@@ -84,8 +83,6 @@ import AdjustableSidebarWidth from 'docc-render/components/AdjustableSidebarWidt
 import Navigator from 'docc-render/components/Navigator.vue';
 import DocumentationNav from 'theme/components/DocumentationTopic/DocumentationNav.vue';
 
-const EXTRA_INFO_THRESHOLD = 500;
-
 export default {
   name: 'DocumentationTopicView',
   components: {
@@ -96,14 +93,12 @@ export default {
     CodeTheme,
     Nav: DocumentationNav,
   },
-  constants: { EXTRA_INFO_THRESHOLD },
   mixins: [performanceMetrics, onPageLoadScrollToFragment],
   data() {
     return {
       topicDataDefault: null,
       topicDataObjc: null,
       isSideNavOpen: false,
-      showExtraNavigatorInfo: false,
       store: DocumentationTopicStore,
     };
   },
@@ -152,6 +147,7 @@ export default {
           roleHeading,
           title = '',
           tags = [],
+          role,
           symbolKind = '',
         } = {},
         primaryContentSections,
@@ -171,6 +167,7 @@ export default {
         downloadNotAvailableSummary,
         diffAvailability,
         hierarchy,
+        role,
         identifier,
         interfaceLanguage,
         isRequirement,
@@ -218,17 +215,33 @@ export default {
     // The first path for any variant with a "swift" interface language trait (if any)
     swiftPath: ({ languagePaths: { [Language.swift.key.api]: [path] = [] } = {} }) => path,
     isSymbolBeta:
-      ({ topicProps: { platforms } }) => platforms
+      ({ topicProps: { platforms } }) => !!(platforms
         && platforms.length
-        && platforms.every(platform => platform.beta),
+        && platforms.every(platform => platform.beta)),
     isSymbolDeprecated:
-      ({ topicProps: { platforms, deprecationSummary } }) => (
+      ({ topicProps: { platforms, deprecationSummary } }) => !!(
         (deprecationSummary && deprecationSummary.length > 0)
         || (platforms
           && platforms.length
           && platforms.every(platform => platform.deprecatedAt)
         )
       ),
+    // Always disable the navigator for IDE targets. For other targets, allow
+    // this feature to be enabled through the `features.docs.navigator.enable`
+    // setting in `theme-settings.json`
+    enableNavigator: ({ isTargetIDE }) => !isTargetIDE && (
+      getSetting(['features', 'docs', 'navigator', 'enable'], false)
+    ),
+    sidebarProps: ({ isSideNavOpen, enableNavigator }) => (
+      enableNavigator
+        ? { class: 'full-width-container topic-wrapper', openExternally: isSideNavOpen }
+        : { class: 'static-width-container topic-wrapper' }
+    ),
+    sidebarListeners() {
+      return this.enableNavigator ? ({
+        'update:openExternally': (v) => { this.isSideNavOpen = v; },
+      }) : {};
+    },
   },
   methods: {
     applyObjcOverrides() {
@@ -236,9 +249,6 @@ export default {
     },
     handleCodeColorsChange(codeColors) {
       CodeThemeStore.updateCodeColors(codeColors);
-    },
-    handleWidthChange(width) {
-      this.showExtraNavigatorInfo = width > EXTRA_INFO_THRESHOLD;
     },
   },
   mounted() {
@@ -307,7 +317,7 @@ export default {
 .doc-topic-view {
   display: flex;
   flex-flow: column;
-  background: var(--color-fill-secondary);
+  background: var(--colors-text-background, var(--color-text-background));
 }
 
 .doc-topic-aside {
@@ -318,11 +328,12 @@ export default {
   }
 }
 
-.full-width-container {
+.topic-wrapper {
   flex: 1 1 auto;
   width: 100%;
-  background: var(--colors-text-background, var(--color-text-background));
+}
 
+.full-width-container {
   @include inTargetWeb {
     @include breakpoint-full-width-container()
   }

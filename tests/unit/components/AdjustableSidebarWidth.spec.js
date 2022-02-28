@@ -1,7 +1,7 @@
 /**
  * This source file is part of the Swift.org open source project
  *
- * Copyright (c) 2021 Apple Inc. and the Swift project authors
+ * Copyright (c) 2022 Apple Inc. and the Swift project authors
  * Licensed under Apache License v2.0 with Runtime Library Exception
  *
  * See https://swift.org/LICENSE.txt for license information
@@ -11,24 +11,47 @@
 import AdjustableSidebarWidth, {
   eventsMap,
   STORAGE_KEY,
+  MAX_WIDTH,
+  ULTRA_WIDE_DEFAULT,
 } from '@/components/AdjustableSidebarWidth.vue';
 import { shallowMount } from '@vue/test-utils';
 import { storage } from 'docc-render/utils/storage';
 import BreakpointEmitter from '@/components/BreakpointEmitter.vue';
 import { waitFrames } from '@/utils/loading';
+import FocusTrap from '@/utils/FocusTrap';
+import scrollLock from 'docc-render/utils/scroll-lock';
+import changeElementVOVisibility from 'docc-render/utils/changeElementVOVisibility';
+import { BreakpointName } from '@/utils/breakpoints';
 import { createEvent, flushPromises } from '../../../test-utils';
 
-jest.mock('docc-render/utils/debounce', () => jest.fn(fn => fn));
+jest.mock('docc-render/utils/debounce');
 jest.mock('docc-render/utils/storage');
+
+jest.mock('docc-render/utils/changeElementVOVisibility');
+jest.mock('docc-render/utils/scroll-lock');
+jest.mock('docc-render/utils/FocusTrap');
+jest.mock('docc-render/utils/throttle', () => jest.fn(v => v));
 
 storage.get.mockImplementation((key, value) => value);
 
+const { SCROLL_LOCK_ID } = AdjustableSidebarWidth.constants;
+
+const scrollLockTarget = document.createElement('DIV');
+scrollLockTarget.id = SCROLL_LOCK_ID;
+document.body.appendChild(scrollLockTarget);
+
 const maxWidth = 500; // 50% of the innerWidth, as per the default maxWidth on large
+let slotProps = {};
 
 const createWrapper = opts => shallowMount(AdjustableSidebarWidth, {
   slots: {
-    aside: '<div class="aside-content">Aside Content</div>',
     default: '<div class="default-content">Default Content</div>',
+  },
+  scopedSlots: {
+    aside(props) {
+      slotProps = props;
+      return this.$createElement('div', { class: 'aside-content' }, 'Aside Content');
+    },
   },
   mocks: { $route: {} },
   ...opts,
@@ -58,17 +81,29 @@ describe('AdjustableSidebarWidth', () => {
     expect(wrapper.find('.default-content').text()).toBe('Default Content');
   });
 
+  it('provides props from the aside scoped slot', () => {
+    createWrapper();
+    expect(slotProps).toEqual({
+      animationClass: 'aside-animated-child',
+      scrollLockID: 'sidebar-scroll-lock',
+    });
+  });
+
   describe('on mount', () => {
-    it('sets the `width` to the min percent for `large`, on mount', () => {
+    it('sets the `width` to the middle between min and max for `large`, on mount', () => {
       const wrapper = createWrapper();
-      assertWidth(wrapper, 200); // 20% on large
+      assertWidth(wrapper, 350); // 35% on large
     });
 
-    it('changes the `width`, to the minWidthPercent, on mount, as soon as the breakpoint gets changed', () => {
-      const wrapper = createWrapper();
-      assertWidth(wrapper, 200); // 20% on large
+    it('changes the `width`, to the next closest max or min, on mount, as soon as the breakpoint gets changed', () => {
+      const wrapper = createWrapper({
+        data: () => ({
+          width: 650,
+        }),
+      });
+      assertWidth(wrapper, 650);
       wrapper.find(BreakpointEmitter).vm.$emit('change', 'medium');
-      assertWidth(wrapper, 300); // 30% on medium
+      assertWidth(wrapper, 500); // 50% on medium
     });
 
     it('applies a momentary no-transition class to the aside, if going from a larger breakpoint into `small`', async () => {
@@ -86,7 +121,8 @@ describe('AdjustableSidebarWidth', () => {
       const wrapper = createWrapper();
       assertWidth(wrapper, 450);
       // assert the storage was called with the key and the default size
-      expect(storage.get).toHaveBeenLastCalledWith(STORAGE_KEY, 200);
+      // 350 is half of min and max on Large
+      expect(storage.get).toHaveBeenLastCalledWith(STORAGE_KEY, 350);
     });
 
     it('sets the `width` to the `max width allowed`, if stored value is bigger', () => {
@@ -94,20 +130,51 @@ describe('AdjustableSidebarWidth', () => {
       const wrapper = createWrapper();
       assertWidth(wrapper, maxWidth); // 80% of 1000
     });
+
+    it('sets the `width` to the `min` width allowed, if stored value is smaller', () => {
+      storage.get.mockReturnValueOnce(100);
+      const wrapper = createWrapper();
+      assertWidth(wrapper, 200); // 20% of 1000
+    });
+
+    it('sets the `width` to the `ULTRA_WIDE_DEFAULT`, if no stored value, and on a very large monitor', () => {
+      window.innerWidth = MAX_WIDTH;
+      storage.get.mockImplementationOnce((key, value) => value);
+      const wrapper = createWrapper();
+      assertWidth(wrapper, ULTRA_WIDE_DEFAULT);
+    });
   });
 
   describe('external open', () => {
-    it('allows opening the sidebar externally', () => {
-      const wrapper = createWrapper({
-        propsData: {
-          openExternally: true,
-        },
-      });
-      expect(wrapper.find('.aside').classes()).toContain('force-open');
-      wrapper.setProps({
-        openExternally: false,
-      });
-      expect(wrapper.find('.aside').classes()).not.toContain('force-open');
+    it('allows opening the sidebar externally', async () => {
+      const wrapper = createWrapper();
+      await flushPromises();
+      // assert not open
+      const aside = wrapper.find('.aside');
+      expect(aside.classes()).not.toContain('force-open');
+      expect(FocusTrap).toHaveBeenCalledTimes(1);
+      expect(FocusTrap.mock.results[0].value.start).toHaveBeenCalledTimes(0);
+      expect(FocusTrap.mock.results[0].value.stop).toHaveBeenCalledTimes(0);
+      // trigger opening externally
+      wrapper.setProps({ openExternally: true });
+      await flushPromises();
+      // assert open class attached
+      expect(aside.classes()).toContain('force-open');
+      // assert scroll lock and other helpers initiated
+      expect(scrollLock.lockScroll).toHaveBeenCalledWith(scrollLockTarget);
+      expect(changeElementVOVisibility.hide).toHaveBeenCalledWith(aside.element);
+      expect(FocusTrap.mock.results[0].value.start).toHaveBeenCalledTimes(1);
+      expect(FocusTrap.mock.results[0].value.stop).toHaveBeenCalledTimes(0);
+      // close again
+      wrapper.setProps({ openExternally: false });
+      await flushPromises();
+      // assert class
+      expect(aside.classes()).not.toContain('force-open');
+      // assert helper status
+      expect(scrollLock.unlockScroll).toHaveBeenCalledWith(scrollLockTarget);
+      expect(changeElementVOVisibility.show).toHaveBeenCalledWith(aside.element);
+      expect(FocusTrap.mock.results[0].value.start).toHaveBeenCalledTimes(1);
+      expect(FocusTrap.mock.results[0].value.stop).toHaveBeenCalledTimes(1);
     });
 
     it('allows closing the sidebar, with Esc', () => {
@@ -126,15 +193,21 @@ describe('AdjustableSidebarWidth', () => {
       // cannot mock the entire $route, and trigger watchers
       expect(AdjustableSidebarWidth.watch.$route).toEqual('closeMobileSidebar');
     });
-  });
 
-  it('allows removing the sidebar using `hideSidebar` prop', () => {
-    const wrapper = createWrapper({
-      propsData: {
-        hideSidebar: true,
-      },
+    it('closes the nav, on breakpoint change from small to medium', async () => {
+      const wrapper = createWrapper({
+        propsData: {
+          openExternally: true,
+        },
+      });
+      // setup
+      wrapper.find(BreakpointEmitter).vm.$emit('change', BreakpointName.small);
+      await wrapper.vm.$nextTick();
+      expect(wrapper.emitted('update:openExternally')).toBeFalsy();
+      // true test
+      wrapper.find(BreakpointEmitter).vm.$emit('change', BreakpointName.medium);
+      expect(wrapper.emitted('update:openExternally')).toEqual([[false]]);
     });
-    expect(wrapper.find('.sidebar').exists()).toBe(false);
   });
 
   it('changes the sidebar width, if outside the min/max on orientation change', async () => {
@@ -265,7 +338,7 @@ describe('AdjustableSidebarWidth', () => {
   });
 
   it('prevents dragging outside of the max container', () => {
-    window.innerWidth = 2000; // very wide screen
+    window.innerWidth = MAX_WIDTH + 200; // very wide screen
     const wrapper = createWrapper();
     const aside = wrapper.find('.aside');
     // assert dragging
@@ -289,5 +362,17 @@ describe('AdjustableSidebarWidth', () => {
     // assert class
     expect(aside.classes()).toContain('dragging');
     assertWidth(wrapper, 200); // wrapper is minimum 20% of the screen (1000px)
+  });
+
+  it('removes any locks upon destruction', async () => {
+    const wrapper = createWrapper();
+    await flushPromises();
+    wrapper.setProps({ openExternally: true });
+    await flushPromises();
+    wrapper.destroy();
+    expect(FocusTrap.mock.results[0].value.destroy).toHaveBeenCalledTimes(1);
+    expect(scrollLock.unlockScroll).toHaveBeenCalledTimes(1);
+    expect(FocusTrap.mock.results[0].value.stop).toHaveBeenCalledTimes(1);
+    expect(changeElementVOVisibility.show).toHaveBeenCalledTimes(1);
   });
 });

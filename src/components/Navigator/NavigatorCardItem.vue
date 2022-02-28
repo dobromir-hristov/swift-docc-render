@@ -1,7 +1,7 @@
 <!--
   This source file is part of the Swift.org open source project
 
-  Copyright (c) 2021 Apple Inc. and the Swift project authors
+  Copyright (c) 2022 Apple Inc. and the Swift project authors
   Licensed under Apache License v2.0 with Runtime Library Exception
 
   See https://swift.org/LICENSE.txt for license information
@@ -11,22 +11,24 @@
 <template>
   <div
     class="navigator-card-item"
-    :class="{ expanded, 'extra-info': showExtendedInfo }"
+    :class="{ expanded }"
     :style="{ '--nesting-index': item.depth }"
   >
     <div class="head-wrapper" :class="{ active: isActive, 'is-group': isGroupMarker }">
-      <button
-        v-if="item.childUIDs.length"
-        class="tree-toggle"
-        @click.exact.prevent="toggleTree"
-        @click.alt.prevent="toggleEntireTree"
-      >
-        <InlineChevronRightIcon class="icon-inline chevron" :class="{ rotate: expanded }" />
-      </button>
-      <NavigatorLeafIcon v-if="!isGroupMarker" :kind="item.kind" class="navigator-icon" />
+      <div class="depth-spacer">
+        <button
+          v-if="item.childUIDs.length"
+          class="tree-toggle"
+          @click.exact.prevent="toggleTree"
+          @click.alt.prevent="toggleEntireTree"
+        >
+          <InlineChevronRightIcon class="icon-inline chevron" :class="{ rotate: expanded }" />
+        </button>
+      </div>
+      <NavigatorLeafIcon v-if="!isGroupMarker" :type="item.type" class="navigator-icon" />
       <div class="title-container">
         <Reference
-          :url="item.path"
+          :url="item.path || ''"
           :isActive="!isGroupMarker"
           :class="{ bolded: isBold }"
           class="leaf-link"
@@ -36,12 +38,6 @@
             :matcher="filterPattern"
           />
         </Reference>
-        <ContentNode
-          v-if="item.abstract"
-          v-show="showExtendedInfo"
-          :content="item.abstract"
-          class="extended-content"
-        />
       </div>
     </div>
   </div>
@@ -50,16 +46,14 @@
 <script>
 import InlineChevronRightIcon from 'theme/components/Icons/InlineChevronRightIcon.vue';
 import NavigatorLeafIcon from 'docc-render/components/Navigator/NavigatorLeafIcon.vue';
-import ContentNode from 'docc-render/components/DocumentationTopic/ContentNode.vue';
 import HighlightMatches from 'docc-render/components/Navigator/HighlightMatches.vue';
 import Reference from 'docc-render/components/ContentNode/Reference.vue';
-import { TopicKind } from 'docc-render/constants/kinds';
+import { TopicTypes } from 'docc-render/constants/TopicTypes';
 
 export default {
   name: 'NavigatorCardItem',
   components: {
     HighlightMatches,
-    ContentNode,
     NavigatorLeafIcon,
     InlineChevronRightIcon,
     Reference,
@@ -70,10 +64,6 @@ export default {
       required: true,
     },
     expanded: {
-      type: Boolean,
-      default: false,
-    },
-    showExtendedInfo: {
       type: Boolean,
       default: false,
     },
@@ -91,7 +81,7 @@ export default {
     },
   },
   computed: {
-    isGroupMarker: ({ item: { kind } }) => kind === TopicKind.groupMarker,
+    isGroupMarker: ({ item: { type } }) => type === TopicTypes.groupMarker,
   },
   methods: {
     toggleTree() {
@@ -107,25 +97,30 @@ export default {
 <style scoped lang='scss'>
 @import 'docc-render/styles/_core.scss';
 
+$item-height: 32px;
+
 .navigator-card-item {
-  height: 32px;
+  height: $item-height;
   display: flex;
   align-items: center;
-  padding-right: var(--card-horizontal-spacing);
+}
 
-  &.extra-info {
-    height: 53px;
-  }
+.depth-spacer {
+  width: calc(var(--nesting-index) * 14px + 26px);
+  height: $item-height;
+  position: relative;
+  flex: 0 0 auto;
 }
 
 .head-wrapper {
-  padding: 5.5px 5px 5.5px calc(var(--nesting-index) * 14px + 26px);
+  padding: 0 5px 0 0;
   position: relative;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   border-radius: $border-radius;
   flex: 1;
   min-width: 0;
+  height: 100%;
 
   &.active {
     background: var(--color-fill-gray-quaternary);
@@ -136,23 +131,14 @@ export default {
       color: var(--color-figure-gray-secondary);
       font-weight: $font-weight-semibold;
     }
-
-    &:hover {
-      background: inherit;
-    }
   }
 
-  &:hover {
-    background: var(--color-fill-light-blue);
-
-    /deep/ .match {
-      background: var(--color-fill);
-    }
+  .hover &:not(.is-group) {
+    background: var(--color-navigator-item-hover);
   }
 
   .navigator-icon {
     display: flex;
-    transform: translateY(3px);
     flex: 0 0 auto;
   }
 
@@ -190,17 +176,15 @@ export default {
 }
 
 .tree-toggle {
-  $size: 15px;
-  $margin: 5px;
-  position: relative;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  padding-right: 5px;
+  box-sizing: border-box;
   z-index: 1;
-  width: $size;
-  height: $size;
-  margin-left: -$size - $margin;
-  margin-right: $margin;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .title-container {

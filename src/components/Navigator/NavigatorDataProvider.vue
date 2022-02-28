@@ -1,7 +1,7 @@
 <!--
   This source file is part of the Swift.org open source project
 
-  Copyright (c) 2021 Apple Inc. and the Swift project authors
+  Copyright (c) 2022 Apple Inc. and the Swift project authors
   Licensed under Apache License v2.0 with Runtime Library Exception
 
   See https://swift.org/LICENSE.txt for license information
@@ -55,10 +55,10 @@ export default {
   async created() {
     try {
       this.isFetching = true;
-      const { languages } = await fetchIndexPathsData();
-      this.navigationIndex = languages;
+      const { interfaceLanguages } = await fetchIndexPathsData();
+      this.navigationIndex = interfaceLanguages;
     } catch (e) {
-      console.log(e);
+      console.error(e);
     } finally {
       this.isFetching = false;
     }

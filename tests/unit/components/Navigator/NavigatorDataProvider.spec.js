@@ -1,7 +1,7 @@
 /**
  * This source file is part of the Swift.org open source project
  *
- * Copyright (c) 2021 Apple Inc. and the Swift project authors
+ * Copyright (c) 2022 Apple Inc. and the Swift project authors
  * Licensed under Apache License v2.0 with Runtime Library Exception
  *
  * See https://swift.org/LICENSE.txt for license information
@@ -38,7 +38,7 @@ const objectiveCIndexOne = {
 };
 
 const response = {
-  languages: {
+  interfaceLanguages: {
     [Language.swift.key.url]: [
       swiftIndexOne,
       swiftIndexTwo,
@@ -107,8 +107,8 @@ describe('NavigatorDataProvider', () => {
   it('falls back to swift items, if no objc items', async () => {
     expect(fetchIndexPathsData).toHaveBeenCalledTimes(0);
     fetchIndexPathsData.mockResolvedValueOnce({
-      languages: {
-        [Language.swift.key.url]: response.languages[Language.swift.key.url],
+      interfaceLanguages: {
+        [Language.swift.key.url]: response.interfaceLanguages[Language.swift.key.url],
       },
     });
     createWrapper({

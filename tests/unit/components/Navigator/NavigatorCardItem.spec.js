@@ -1,7 +1,7 @@
 /**
  * This source file is part of the Swift.org open source project
  *
- * Copyright (c) 2021 Apple Inc. and the Swift project authors
+ * Copyright (c) 2022 Apple Inc. and the Swift project authors
  * Licensed under Apache License v2.0 with Runtime Library Exception
  *
  * See https://swift.org/LICENSE.txt for license information
@@ -10,21 +10,20 @@
 
 import NavigatorCardItem from '@/components/Navigator/NavigatorCardItem.vue';
 import { RouterLinkStub, shallowMount } from '@vue/test-utils';
-import { TopicKind } from '@/constants/kinds';
+import { TopicTypes } from '@/constants/TopicTypes';
 import NavigatorLeafIcon from '@/components/Navigator/NavigatorLeafIcon.vue';
 import HighlightMatches from '@/components/Navigator/HighlightMatches.vue';
 
 const defaultProps = {
   item: {
     depth: 2,
-    kind: TopicKind.func,
+    type: TopicTypes.func,
     childUIDs: [1, 2, 3],
     path: '/path/to/foo',
     title: 'Foo Item',
     abstract: [{ type: 'text', text: 'abstract' }],
   },
   expanded: false,
-  showExtendedInfo: false,
   filterPattern: /foo/gi,
   isActive: false,
 };
@@ -45,13 +44,12 @@ describe('NavigatorCardItem', () => {
     const wrapper = createWrapper();
     expect(wrapper.find('.navigator-card-item').exists()).toBe(true);
     expect(wrapper.find('button.tree-toggle').exists()).toBe(true);
-    expect(wrapper.find(NavigatorLeafIcon).props('kind')).toBe(defaultProps.item.kind);
+    expect(wrapper.find(NavigatorLeafIcon).props('type')).toBe(defaultProps.item.type);
     expect(wrapper.find('.leaf-link').props('url')).toEqual(defaultProps.item.path);
     expect(wrapper.find(HighlightMatches).props()).toEqual({
       text: defaultProps.item.title,
       matcher: defaultProps.filterPattern,
     });
-    expect(wrapper.find('.extended-content').props('content')).toEqual(defaultProps.item.abstract);
   });
 
   it('does not render the expand button, if has no children', () => {
@@ -74,15 +72,6 @@ describe('NavigatorCardItem', () => {
     });
     expect(wrapper.classes()).toContain('expanded');
     expect(wrapper.find('.chevron').classes()).toContain('rotate');
-  });
-
-  it('adds extra classes, when `showExtendedInfo == true`', () => {
-    const wrapper = createWrapper({
-      propsData: {
-        showExtendedInfo: true,
-      },
-    });
-    expect(wrapper.classes()).toContain('extra-info');
   });
 
   it('adds extra classes when active', () => {
