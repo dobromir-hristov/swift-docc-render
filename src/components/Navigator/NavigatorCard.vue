@@ -94,7 +94,7 @@ import SidenavIcon from 'theme/components/Icons/SidenavIcon.vue';
 import Reference from 'docc-render/components/ContentNode/Reference.vue';
 import { TopicTypes } from 'docc-render/constants/TopicTypes';
 import FilterInput from 'docc-render/components/Filter/FilterInput.vue';
-import { BreakpointName } from '@/utils/breakpoints';
+import { BreakpointName } from 'docc-render/utils/breakpoints';
 
 const STORAGE_KEYS = {
   filter: 'navigator.filter',
