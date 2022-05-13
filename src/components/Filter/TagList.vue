@@ -37,12 +37,13 @@
         <Tag
           v-for="(tag, index) in tags"
           ref="tag"
-          :key="tag.id || index"
-          :name="tag.label || tag"
+          :key="tag.id"
+          :tag="tag"
+          :name="tag.label"
           :isFocused="focusedIndex === index"
           :isRemovableTag="areTagsRemovable"
           :filterText="input"
-          :isActiveTag="activeTags.includes(tag)"
+          :isActiveTag="activeTagsMap[tag.id]"
           :activeTags="activeTags"
           :keyboardIsVirtual="keyboardIsVirtual"
           @focus="handleFocus($event, index)"
@@ -69,10 +70,16 @@ export default {
     keyboardNavigation,
   ],
   props: {
+    /**
+     * @type { {id: string, label:string}[] }
+     */
     tags: {
       type: Array,
       default: () => [],
     },
+    /**
+     * @type { {id: string, label: string}[] }
+     */
     activeTags: {
       type: Array,
       default: () => [],
@@ -102,8 +109,8 @@ export default {
     Tag,
   },
   methods: {
-    focusTag(name) {
-      this.focusIndex(this.tags.indexOf(name));
+    focusTag(tag) {
+      this.focusIndex(this.tags.findIndex(({ id }) => id === tag.id));
     },
     startingPointHook() {
       this.$emit('focus-prev');
@@ -130,12 +137,15 @@ export default {
 
       // match if it is an alphanum key or space
       if (isSingleCharacter(key) && tag) {
-        this.$emit('delete-tag', { tagName: tag.label || tag, event });
+        this.$emit('delete-tag', { tag, event });
       }
     },
   },
   computed: {
     totalItemsToNavigate: ({ tags }) => tags.length,
+    activeTagsMap: ({ activeTags }) => Object.fromEntries(
+      activeTags.map(tag => ([tag.id, true])),
+    ),
   },
 };
 </script>

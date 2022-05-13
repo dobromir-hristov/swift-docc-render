@@ -17,6 +17,11 @@ import {
 import { parseDataFromClipboard, prepareDataForHTMLClipboard } from 'docc-render/utils/clipboard';
 import { insertAt } from 'docc-render/utils/strings';
 import debounce from 'docc-render/utils/debounce';
+import {
+  allItemsFromIncludedIn,
+  removeDuplicatesFromArrayBy,
+  shallowMergeByProperty,
+} from 'docc-render/utils/arrays';
 
 const DebounceDelay = 280;
 const VirtualKeyboardThreshold = 100;
@@ -25,7 +30,10 @@ export default {
   data() {
     return {
       keyboardIsVirtual: false,
-      // tracks tags that are selected (for copy or delete)
+      /**
+       * @type {TagObject[]}
+       * tracks tags that are selected (for copy or delete)
+       */
       activeTags: [],
       initTagIndex: null,
       focusedTagIndex: null,
@@ -41,18 +49,26 @@ export default {
   },
   computed: {
     virtualKeyboardBind: ({ keyboardIsVirtual }) => ({ keyboardIsVirtual }),
-    allSelectedTagsAreActive: ({ selectedTags, activeTags }) => (
-      selectedTags.every(tag => activeTags.includes(tag))
+    // TODO: Make sure it works
+    allSelectedTagsAreActive: ({ selectedTagsNormalized, activeTags }) => (
+      allItemsFromIncludedIn(selectedTagsNormalized, activeTags)
     ),
+    usesStringTags: ({ selectedTags, tags }) => typeof selectedTags[0] === 'string' || typeof tags[0] === 'string',
   },
   methods: {
-    selectRangeActiveTags(startIndex = this.focusedTagIndex, endIndex = this.selectedTags.length) {
-      this.activeTags = this.selectedTags.slice(
+    selectRangeActiveTags(
+      startIndex = this.focusedTagIndex,
+      endIndex = this.selectedTagsNormalized.length,
+    ) {
+      this.activeTags = this.selectedTagsNormalized.slice(
         startIndex,
         endIndex,
       );
     },
-
+    /**
+     * Adds a tag object to the list of selected tags
+     * @param {TagObject} tag
+     */
     selectTag(tag) {
       this.updateSelectedTags([tag]);
       if (!this.clearFilterOnTagSelect) return;
@@ -67,7 +83,11 @@ export default {
     },
     async deleteHandler(e) {
       if (this.activeTags.length > 0) {
-        this.setSelectedTags(this.selectedTags.filter(tag => !this.activeTags.includes(tag)));
+        this.setSelectedTags(removeDuplicatesFromArrayBy(
+          this.selectedTagsNormalized,
+          this.activeTags,
+          'id',
+        ));
       }
       if (this.inputIsSelected() && this.allSelectedTagsAreActive) {
         // stop the default event, so it doesnt trigger the `@input` handler
@@ -81,7 +101,7 @@ export default {
           // Because mobile and tablet users don't usually have a displayed virtual keyboard
           // all the time, behaviour has been changed to allow a safer approach:
           // delete the last tag directly when the user clicks on the delete key
-          this.setSelectedTags(this.selectedTags.slice(0, -1));
+          this.setSelectedTags(this.selectedTagsNormalized.slice(0, -1));
         } else {
           // Default behaviour for desktop users is to focus on the last tag and then
           // delete it when they click on the delete key while focused on the tag
@@ -113,14 +133,14 @@ export default {
           if (this.$refs.input.selectionDirection !== 'forward') {
             // init focusedTagIndex as the last tag in selectedTags
             if (this.focusedTagIndex === null) {
-              this.focusedTagIndex = this.selectedTags.length;
+              this.focusedTagIndex = this.selectedTagsNormalized.length;
             }
             // move focusedTagIndex index one to the left
             if (this.focusedTagIndex > 0) {
               this.focusedTagIndex -= 1;
             }
 
-            this.initTagIndex = this.selectedTags.length;
+            this.initTagIndex = this.selectedTagsNormalized.length;
             this.selectTagsPressingShift();
             return;
           }
@@ -139,9 +159,9 @@ export default {
 
       if (this.activeTags.length) {
         // If shift key is pressed and user focus is coming from a tag
-        if (this.shiftKey && this.focusedTagIndex < this.selectedTags.length) {
+        if (this.shiftKey && this.focusedTagIndex < this.selectedTagsNormalized.length) {
           // when there is a init tag, keep it active
-          if (this.initTagIndex < this.selectedTags.length) {
+          if (this.initTagIndex < this.selectedTagsNormalized.length) {
             this.selectRangeActiveTags(this.initTagIndex, this.focusedTagIndex + 1);
             return;
           }
@@ -174,18 +194,20 @@ export default {
           this.resetFilters();
         }
       }
-      this.multipleTagsSelectionHandler({ event, tagName: '' });
+      this.multipleTagsSelectionHandler({ event });
     },
 
     /**
      * Handles arbitrary keydown cases for the selected tags
+     * @param {KeyboardEvent} event
+     * @param {TagObject} tag
      */
-    selectedTagsKeydownHandler({ event, tagName }) {
+    selectedTagsKeydownHandler({ event, tag }) {
       // Prevent click from being fired when pressing Enter key
       if (event.key === 'Enter') {
         event.preventDefault();
       }
-      this.multipleTagsSelectionHandler({ event, tagName });
+      this.multipleTagsSelectionHandler({ event, tag });
     },
 
     /**
@@ -226,10 +248,12 @@ export default {
 
     /**
      * Handler when the user focus on a tag
+     * @param {FocusEvent} event
+     * @param {TagObject} tag
      */
-    focusTagHandler({ event = {}, tagName }) {
+    focusTagHandler({ event = {}, tag }) {
       // Update focusedTagIndex with the current value
-      this.focusedTagIndex = this.selectedTags.indexOf(tagName);
+      this.focusedTagIndex = this.selectedTagsNormalized.findIndex(t => t.id === tag.id);
 
       // relatedTarget tells from where the focus element comes from
       const target = event.relatedTarget;
@@ -271,13 +295,15 @@ export default {
       if (this.metaKey && this.shiftKey) {
         if (key === 'ArrowRight') {
           // Select all from cursor to end of the tags
-          this.selectRangeActiveTags(this.initTagIndex, this.selectedTags.length);
+          this.selectRangeActiveTags(this.initTagIndex, this.selectedTagsNormalized.length);
 
           if (this.input.length) {
             this.$refs.input.select();
           } else {
             // Focus tag at the end of the tags
-            this.$refs.selectedTags.focusTag(this.selectedTags[this.selectedTags.length - 1]);
+            this.$refs.selectedTags.focusTag(
+              this.selectedTagsNormalized[this.selectedTagsNormalized.length - 1],
+            );
           }
         } else if (key === 'ArrowLeft') {
           // Select all from cursor to beginning of the tags
@@ -285,7 +311,7 @@ export default {
 
           if (!this.input.length) {
             // Focus tag at the beginning of the tags
-            this.$refs.selectedTags.focusTag(this.selectedTags[0]);
+            this.$refs.selectedTags.focusTag(this.selectedTagsNormalized[0]);
           }
         }
       }
@@ -293,13 +319,16 @@ export default {
 
     /**
      * Select and unselect tags using the metaKey only for mouse events
+     * @param {Event} event
+     * @param {TagObject} tag
      */
-    metaKeyClickSelection(event, tagName) {
+    metaKeyClickSelection(event, tag) {
       if (this.metaKey && event instanceof MouseEvent) {
+        const tagIndex = this.activeTags.findIndex(t => t.id === tag.id);
         // If a user clicks with the mouse holding the meta key
-        if (this.activeTags.includes(tagName)) {
+        if (tagIndex !== -1) {
           // deletes a tag when it's included in the active tags
-          this.activeTags.splice(this.activeTags.indexOf(tagName), 1);
+          this.activeTags.splice(tagIndex, 1);
 
           // Remove focus from tag and focus first active tag or input depending on
           // if there are active tags or not
@@ -310,7 +339,7 @@ export default {
           }
         } else {
           // If a tag is not included in the active tags we should add it to the active tags
-          this.activeTags.push(tagName);
+          this.activeTags.push(tag);
         }
       }
     },
@@ -329,26 +358,27 @@ export default {
 
     /**
      * Init tag
+     * @param {TagObject} [tag]
      */
-    initTag(tagName) {
+    initTag(tag) {
       if (
         this.initTagIndex === null
-        && !this.activeTags.includes(tagName)
+        && !this.activeTags.find(t => t.id === tag.id)
       ) {
-        if (tagName) {
+        if (tag) {
           // Init the shift key when the user click on the shift key for the first time
-          this.initTagIndex = this.selectedTags.indexOf(tagName);
+          this.initTagIndex = this.selectedTagsNormalized.findIndex(t => t.id === tag.id);
           // Add the init shift key to the active tags
-          this.activeTags.push(tagName);
+          this.activeTags.push(tag);
         } else {
           // When selecting from the input value there isn't shift init tag
           // so we take the total selected tags length
-          this.initTagIndex = this.selectedTags.length;
+          this.initTagIndex = this.selectedTagsNormalized.length;
         }
       }
     },
 
-    multipleTagsSelectionHandler({ event = new KeyboardEvent('keydown', {}), tagName }) {
+    multipleTagsSelectionHandler({ event = new KeyboardEvent('keydown', {}), tag }) {
       const { key = '' } = event;
 
       // Prevent function to run when pressing the Enter key
@@ -358,7 +388,7 @@ export default {
 
       if ((this.shiftKey || this.metaKey) && !this.tabbing) {
         // Init tag when shift key or meta key are pressed
-        this.initTag(tagName);
+        this.initTag(tag);
       } else if (key !== 'Backspace') {
         // Reset the shift selected tags when user clicks in any key unless
         // using the shift, meta or delete key
@@ -378,7 +408,7 @@ export default {
     },
 
     selectInputAndTags() {
-      this.activeTags = [...this.selectedTags];
+      this.activeTags = [...this.selectedTagsNormalized];
 
       if (this.input.length) {
         this.$refs.input.select();
@@ -396,8 +426,9 @@ export default {
     /**
      * Handles clicking or hitting enter on a focused tag.
      * @param {Event} value
+     * @param {TagObject} tag
      */
-    handleSingleTagClick({ event, tagName }) {
+    handleSingleTagClick({ event, tag }) {
       if (this.keyboardIsVirtual) {
         // init debounce function
         if (!this.debouncedHandleDeleteTag) {
@@ -405,11 +436,11 @@ export default {
         }
         // remove the tag if it's on mobile
         // and prevent handleDeleteTag to be called too fast
-        this.debouncedHandleDeleteTag({ tagName, event });
+        this.debouncedHandleDeleteTag({ tag, event });
       } else {
         this.assignEventValues(event);
-        this.metaKeyClickSelection(event, tagName);
-        this.multipleTagsSelectionHandler({ event, tagName });
+        this.metaKeyClickSelection(event, tag);
+        this.multipleTagsSelectionHandler({ event, tag });
       }
     },
     /**
@@ -451,25 +482,35 @@ export default {
       this.$emit('update:input', value);
     },
     setSelectedTags(tags) {
-      this.$emit('update:selectedTags', tags);
+      this.$emit('update:selectedTags', this.convertTagsBack(tags));
+    },
+    convertTagsBack(tags) {
+      return tags.map(tag => (this.usesStringTags ? tag.label : tag));
+    },
+    deleteTags(array) {
+      this.setSelectedTags(
+        removeDuplicatesFromArrayBy(this.selectedTagsNormalized, array, 'id'),
+      );
     },
     /**
      * Appends provided tags to the already existing tags.
      * Removes duplicates.
-     * @param {string[]} tags
+     * @param {TagObject[]} tags
      */
     updateSelectedTags(tags) {
-      this.setSelectedTags([...new Set([...this.selectedTags, ...tags])]);
+      this.setSelectedTags(
+        shallowMergeByProperty(this.selectedTagsNormalized, tags),
+      );
     },
     /**
      * Handles Copy-ing from the input or Selected tags
      * @param {ClipboardEvent} event
-     * @returns {{ input: string, tags string[] }}
+     * @returns {{ input: string, tags: string[] }}
      */
     handleCopy(event) {
       event.preventDefault();
       // plain text payload
-      const copyBuffer = [];
+      const copyPlainTextBuffer = [];
       // JSON payload
       const copyJSONBuffer = {
         tags: [],
@@ -479,17 +520,17 @@ export default {
       if (this.activeTags.length) {
         const tagsToCopy = this.activeTags;
         copyJSONBuffer.tags = tagsToCopy;
-        copyBuffer.push(tagsToCopy.join(' '));
+        copyPlainTextBuffer.push(tagsToCopy.map(t => t.label).join(' '));
       }
 
       // prepare plain text copy payload.
-      copyBuffer.push(copyJSONBuffer.input);
+      copyPlainTextBuffer.push(copyJSONBuffer.input);
       // if we have no tags or input selected, dont proceed with copy command
       if (!copyJSONBuffer.tags.length && !copyJSONBuffer.input.length) return copyJSONBuffer;
       // save data as JSON in clipboard, for easy retrieval.
       event.clipboardData.setData('text/html', prepareDataForHTMLClipboard(copyJSONBuffer));
       // fill in plain text payload
-      event.clipboardData.setData('text/plain', copyBuffer.join(' '));
+      event.clipboardData.setData('text/plain', copyPlainTextBuffer.join(' '));
 
       return copyJSONBuffer;
     },
@@ -503,7 +544,9 @@ export default {
       // dont overwrite the content, if nothing is copied
       if (!input && !tags.length) return;
       // remove what is copied from the selection and input
-      const remainingTags = this.selectedTags.filter(tag => !tags.includes(tag));
+      const remainingTags = removeDuplicatesFromArrayBy(
+        this.selectedTagsNormalized, tags, 'id',
+      );
       const remainingInput = this.input.replace(input, '');
       // set the leftover content
       this.setSelectedTags(remainingTags);
@@ -547,14 +590,15 @@ export default {
     },
     /**
      * Handles deleting a tag
-     * @param {string} tag
+     * @param {TagObject} tag
+     * @param {Event} event
      * @returns {Promise<void>}
      */
-    async handleDeleteTag({ tagName, event = {} }) {
+    async handleDeleteTag({ tag, event = {} }) {
       const { key } = event;
 
       if (!this.activeTags.length) {
-        this.deleteTags([tagName]);
+        this.deleteTags([tag]);
       }
 
       this.unselectActiveTags();

@@ -40,7 +40,7 @@
             v-if="hasSelectedTags"
             :id="SelectedTagsId"
             :input="input"
-            :tags="selectedTags"
+            :tags="selectedTagsNormalized"
             :ariaLabel="selectedTagsLabel"
             :activeTags="activeTags"
             v-bind="virtualKeyboardBind"
@@ -108,7 +108,7 @@
         :tags="suggestedTags"
         v-bind="virtualKeyboardBind"
         class="filter__suggested-tags"
-        @click-tags="selectTag($event.tagName)"
+        @click-tags="selectTag($event.tag)"
         @prevent-blur="$emit('update:preventedBlur', true)"
         @focus-next="positionReversed ? focusInput() : $emit('focus-next')"
         @focus-prev="positionReversed ? $emit('focus-prev') : focusInput()"
@@ -141,6 +141,14 @@ const AXinputProperties = {
   'aria-owns': 'suggestedTags',
   'aria-controls': 'suggestedTags',
 };
+
+function normalizeTags(tags) {
+  return tags.map(tag => (
+    typeof tag === 'string'
+      ? { label: tag, id: tag }
+      : tag
+  ));
+}
 
 export default {
   name: 'FilterInput',
@@ -210,6 +218,13 @@ export default {
     };
   },
   computed: {
+    /** @type TagObject[] */
+    tagsNormalized: ({ tags }) => normalizeTags(tags),
+    /** @type TagObject[] */
+    selectedTagsNormalized: ({ selectedTags }) => normalizeTags(selectedTags),
+    selectedTagsMap: ({ selectedTagsNormalized }) => Object.fromEntries(
+      selectedTagsNormalized.map(({ id }) => ([id, true])),
+    ),
     tagsText: ({ suggestedTags }) => pluralize({
       en: {
         one: 'tag',
@@ -236,8 +251,8 @@ export default {
      * Can also truncate the tags, at a certain limit, via the `shouldTruncateTags` prop.
      * @returns {string[]}
      */
-    suggestedTags: ({ tags, selectedTags, shouldTruncateTags }) => {
-      const suggestedTags = tags.filter(tag => !selectedTags.includes(tag));
+    suggestedTags: ({ tagsNormalized, selectedTagsMap, shouldTruncateTags }) => {
+      const suggestedTags = tagsNormalized.filter(tag => !selectedTagsMap[tag.id]);
 
       return shouldTruncateTags
         ? suggestedTags.slice(0, TagLimit)
@@ -295,8 +310,8 @@ export default {
 
     suggestedTags: {
       immediate: true,
-      handler(value) {
-        this.$emit('suggested-tags', value);
+      handler(tags) {
+        this.$emit('suggested-tags', this.convertTagsBack(tags));
       },
     },
 
@@ -351,12 +366,6 @@ export default {
     setFilterInput(value) {
       this.$emit('input', value);
     },
-    setSelectedTags(tags) {
-      this.$emit('update:selectedTags', tags);
-    },
-    deleteTags(array) {
-      this.setSelectedTags(this.selectedTags.filter(tag => !array.includes(tag)));
-    },
     async handleBlur(event) {
       // if the blur came from clicking a button or the input
       const target = event.relatedTarget;
@@ -394,6 +403,9 @@ export default {
       } else {
         this.$emit('focus-prev');
       }
+    },
+    convertTagsBack(tags) {
+      return tags.map(tag => (this.usesStringTags ? tag.label : tag));
     },
   },
   created() {

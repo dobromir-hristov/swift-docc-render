@@ -16,14 +16,14 @@
       role="option"
       :aria-selected="ariaSelected"
       aria-roledescription="tag"
-      @focus="$emit('focus', { event: $event, tagName: name })"
-      @click.prevent="$emit('click', { event: $event, tagName: name })"
+      @focus="$emit('focus', constructPayload($event))"
+      @click.prevent="$emit('click', constructPayload($event))"
       @dblclick.prevent="!keyboardIsVirtual && deleteTag()"
-      @keydown.exact="$emit('keydown', { event: $event, tagName: name })"
-      @keydown.shift.exact="$emit('keydown', { event: $event, tagName: name })"
-      @keydown.shift.meta.exact="$emit('keydown', { event: $event, tagName: name })"
-      @keydown.meta.exact="$emit('keydown', { event: $event, tagName: name })"
-      @keydown.ctrl.exact="$emit('keydown', { event: $event, tagName: name })"
+      @keydown.exact="$emit('keydown', constructPayload($event))"
+      @keydown.shift.exact="$emit('keydown', constructPayload($event))"
+      @keydown.shift.meta.exact="$emit('keydown', constructPayload($event))"
+      @keydown.meta.exact="$emit('keydown', constructPayload($event))"
+      @keydown.ctrl.exact="$emit('keydown', constructPayload($event))"
       @keydown.delete.prevent="deleteTag"
       @mousedown.prevent="focusButton"
       @copy="handleCopy"
@@ -41,11 +41,18 @@
 <script>
 import { prepareDataForHTMLClipboard } from 'docc-render/utils/clipboard';
 
+/**
+ * @typedef {Object} TagObject
+ * @property {string} id
+ * @property {string} label
+ */
+
 export default {
   name: 'Tag',
   props: {
-    name: {
-      type: String,
+    /** @type TagObject */
+    tag: {
+      type: Object,
       required: true,
     },
     isFocused: {
@@ -60,6 +67,7 @@ export default {
       type: Boolean,
       default: false,
     },
+    /** @type TagObject[] */
     activeTags: {
       type: Array,
       required: false,
@@ -89,6 +97,9 @@ export default {
     });
   },
   methods: {
+    constructPayload(event) {
+      return { event, tag: this.tag };
+    },
     isCurrentlyActiveElement() {
       return document.activeElement === this.$refs.button;
     },
@@ -106,11 +117,11 @@ export default {
       if (this.activeTags.length > 0) {
         tags = this.activeTags;
       } else {
-        tags = [this.name];
+        tags = [this.tag];
       }
       event.clipboardData.setData('text/html', prepareDataForHTMLClipboard({ tags }));
       // copy as plain text
-      event.clipboardData.setData('text/plain', tags.join(' '));
+      event.clipboardData.setData('text/plain', tags.map(t => t.label).join(' '));
     },
     handleCut(event) {
       if (!this.isCurrentlyActiveElement() || !this.isRemovableTag) return;
@@ -132,7 +143,7 @@ export default {
       this.$emit('paste-content', event);
     },
     deleteTag(event) {
-      this.$emit('delete-tag', { tagName: this.name, event });
+      this.$emit('delete-tag', this.constructPayload(event));
       this.$emit('prevent-blur');
     },
     /**
@@ -151,6 +162,7 @@ export default {
     },
   },
   computed: {
+    name: ({ tag }) => tag.label,
     ariaSelected: ({ isActiveTag, isRemovableTag }) => {
       if (!isRemovableTag) return null;
       return isActiveTag ? 'true' : 'false';
