@@ -142,7 +142,7 @@ const AXinputProperties = {
   'aria-controls': 'suggestedTags',
 };
 
-function normalizeTags(tags) {
+export function normalizeTags(tags) {
   return tags.map(tag => (
     typeof tag === 'string'
       ? { label: tag, id: tag }

@@ -17,7 +17,10 @@ describe('Tag', () => {
   let button;
 
   const propsData = {
-    name: 'Tag A',
+    tag: {
+      label: 'Tag A',
+      id: 'tag-a',
+    },
     isFocused: false,
     isRemovableTag: false,
     isActiveTag: false,
@@ -52,7 +55,7 @@ describe('Tag', () => {
     button.trigger('dblclick');
 
     expect(wrapper.emitted('delete-tag')).toBeTruthy();
-    expect(wrapper.emitted('delete-tag')[0][0].tagName).toEqual(propsData.name);
+    expect(wrapper.emitted('delete-tag')[0][0].tag).toEqual(propsData.tag);
   });
 
   it('does not emit `delete-tag` when being double clicked if `keyboardIsVirtual` is true', () => {
@@ -82,7 +85,10 @@ describe('Tag', () => {
     expect(wrapper.emitted('delete-tag')).toBeFalsy();
 
     expect(document.activeElement).toBe(button.element);
-    expect(wrapper.emitted('focus')).toBeTruthy();
+    expect(wrapper.emitted('focus')).toEqual([[{
+      tag: propsData.tag,
+      event: expect.any(Object),
+    }]]);
   });
 
   it('does not prevent blur when focusing in a tag', () => {
@@ -190,8 +196,8 @@ describe('Tag', () => {
       triggerGlobalEvent('copy');
       expect(setData).toHaveBeenCalledTimes(2);
       expect(setData)
-        .toHaveBeenNthCalledWith(1, 'text/html', prepareDataForHTMLClipboard({ tags: [propsData.name] }));
-      expect(setData).toHaveBeenNthCalledWith(2, 'text/plain', propsData.name);
+        .toHaveBeenNthCalledWith(1, 'text/html', prepareDataForHTMLClipboard({ tags: [propsData.tag] }));
+      expect(setData).toHaveBeenNthCalledWith(2, 'text/plain', propsData.tag.label);
       expect(wrapper.emitted('delete-tag')).toBeFalsy();
     });
 
@@ -215,8 +221,8 @@ describe('Tag', () => {
 
       expect(setData).toHaveBeenCalledTimes(2);
       expect(setData)
-        .toHaveBeenNthCalledWith(1, 'text/html', prepareDataForHTMLClipboard({ tags: [propsData.name] }));
-      expect(setData).toHaveBeenNthCalledWith(2, 'text/plain', propsData.name);
+        .toHaveBeenNthCalledWith(1, 'text/html', prepareDataForHTMLClipboard({ tags: [propsData.tag] }));
+      expect(setData).toHaveBeenNthCalledWith(2, 'text/plain', propsData.tag.label);
       expect(wrapper.emitted('delete-tag')).toBeTruthy();
     });
 
@@ -227,8 +233,8 @@ describe('Tag', () => {
       wrapper.find({ ref: 'button' }).trigger('copy', { clipboardData });
       expect(clipboardData.setData).toHaveBeenCalledTimes(2);
       expect(clipboardData.setData)
-        .toHaveBeenCalledWith('text/html', prepareDataForHTMLClipboard({ tags: [propsData.name] }));
-      expect(clipboardData.setData).toHaveBeenCalledWith('text/plain', propsData.name);
+        .toHaveBeenCalledWith('text/html', prepareDataForHTMLClipboard({ tags: [propsData.tag] }));
+      expect(clipboardData.setData).toHaveBeenCalledWith('text/plain', propsData.tag.label);
     });
 
     it('on paste, does nothing if tag is not focused', () => {
@@ -269,7 +275,10 @@ describe('Tag', () => {
       const event = triggerGlobalEvent('paste');
 
       // assert the tag is being deleted and the `paste-content` event is emitted once
-      expect(wrapper.emitted('delete-tag')).toHaveLength(1);
+      expect(wrapper.emitted('delete-tag')).toEqual([[{
+        event: expect.any(Object),
+        tag: propsData.tag,
+      }]]);
       expect(wrapper.emitted('paste-content')).toHaveLength(1);
       // assert the event is being passed up.
       expect(wrapper.emitted('paste-content')[0][0]).toEqual(event);

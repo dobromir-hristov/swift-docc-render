@@ -21,7 +21,7 @@ describe('TagList', () => {
   } = TagList.components;
 
   const propsData = {
-    tags: ['Tag1', 'Tag2'],
+    tags: [{ label: 'Tag1', id: 'tag-1' }, { label: 'Tag2', id: 'tab-2' }],
     activeTags: [],
   };
 
@@ -35,6 +35,14 @@ describe('TagList', () => {
     const tags = wrapper.findAll(Tag);
 
     expect(tags.length).toBe(2);
+    expect(tags.at(0).props()).toEqual({
+      tag: propsData.tags[0],
+      isFocused: true,
+      isRemovableTag: false,
+      keyboardIsVirtual: false,
+      isActiveTag: false,
+      activeTags: propsData.activeTags,
+    });
   });
 
   it('renders an `scrolling` class inside the tag list if `isScrolling` is true', () => {
@@ -56,6 +64,11 @@ describe('TagList', () => {
   describe('when being focus on the first tag', () => {
     beforeEach(() => {
       tag1.vm.$emit('focus');
+    });
+
+    it('allows focusing a tag', () => {
+      wrapper.vm.focusTag(propsData.tags[1]);
+      expect(wrapper.vm.focusedIndex).toBe(1);
     });
 
     it('sets `focusedIndex` to the index value of the focused tag', () => {
@@ -168,11 +181,17 @@ describe('TagList', () => {
     wrapper.setData({ focusedIndex: 0 });
     tag.trigger('keydown', { key: alphanumKey });
 
-    expect(wrapper.emitted('delete-tag')[0][0].tagName).toEqual(propsData.tags[0]);
+    expect(wrapper.emitted('delete-tag')[0][0]).toMatchObject({
+      event: expect.any(Object),
+      tag: propsData.tags[0],
+    });
 
     tag.trigger('keydown', { key: space });
 
-    expect(wrapper.emitted('delete-tag')).toBeTruthy();
+    expect(wrapper.emitted('delete-tag')[1][0]).toMatchObject({
+      event: expect.any(Object),
+      tag: propsData.tags[0],
+    });
   });
 
   it('emits `select-all` when user has text on input and `command + a` is triggered on any tag', () => {

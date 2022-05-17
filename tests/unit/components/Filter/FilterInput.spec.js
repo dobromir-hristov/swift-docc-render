@@ -9,8 +9,8 @@
 */
 
 import { prepareDataForHTMLClipboard } from '@/utils/clipboard';
-import { shallowMount } from '@vue/test-utils';
-import FilterInput from '@/components/Filter/FilterInput.vue';
+import { mount } from '@vue/test-utils';
+import FilterInput, { normalizeTags } from '@/components/Filter/FilterInput.vue';
 import TagList from '@/components/Filter/TagList.vue';
 import {
   getSelectionText, moveCursorToStart, isSingleCharacter, moveCursorToEnd,
@@ -46,6 +46,7 @@ describe('FilterInput', () => {
   let filterButtonSVG;
 
   const tags = ['Tag1', 'Tag2'];
+  const tagsNormalized = normalizeTags(tags);
 
   const propsData = {
     value: '',
@@ -78,9 +79,9 @@ describe('FilterInput', () => {
       removeEventListener: jest.fn(),
     };
 
-    wrapper = shallowMount(FilterInput, {
+    wrapper = mount(FilterInput, {
       propsData,
-      stubs: { TagList },
+      sync: false,
     });
 
     input = wrapper.find({ ref: 'input' });
@@ -109,6 +110,7 @@ describe('FilterInput', () => {
     wrapper.setProps({
       placeholder: 'Foo',
     });
+    await wrapper.vm.$nextTick();
     expect(input.attributes('placeholder')).toBe('Foo');
     // make sure it emits the correct event
     input.setValue(inputValue);
@@ -121,8 +123,9 @@ describe('FilterInput', () => {
     expect(input.element.value).toEqual('new-value');
   });
 
-  it('renders an filter label element that has a input-value attrib to resize the input', () => {
+  it('renders an filter label element that has a input-value attrib to resize the input', async () => {
     wrapper.setProps({ value: inputValue });
+    await wrapper.vm.$nextTick();
     const filterLabel = wrapper.find('#filter-label');
     // check input-value attrib for filter label contains the input value
     expect(filterLabel.attributes('data-value')).toBe(inputValue);
@@ -130,29 +133,31 @@ describe('FilterInput', () => {
     expect(filterLabel.classes('filter__input-label')).toBe(true);
   });
 
-  it('renders a `scrolling` class inside the input box wrapper if `isScrolling` is true', () => {
+  it('renders a `scrolling` class inside the input box wrapper if `isScrolling` is true', async () => {
     const inputBoxWrapper = wrapper.find('.filter__input-box-wrapper');
 
     expect(inputBoxWrapper.classes('scrolling')).toBe(false);
 
     // simulate the `handleScrollbar` mixin triggering ON
     wrapper.setData({ isScrolling: true });
+    await wrapper.vm.$nextTick();
 
     expect(inputBoxWrapper.classes('scrolling')).toBe(true);
   });
 
-  it('renders a disabled attr on input if it is disabled', () => {
+  it('renders a disabled attr on input if it is disabled', async () => {
     // input is not disabled
     expect(input.attributes('disabled')).toBeFalsy();
     // set disabled prop to true
     wrapper.setProps({ disabled: true });
+    await wrapper.vm.$nextTick();
     // input is disabled
     expect(input.attributes('disabled')).toBe('disabled');
   });
 
   it('emits `show-suggested-tags` if filter button is clicked', async () => {
     wrapper.find('.filter__filter-button').trigger('click');
-    await wrapper.vm.$nextTick();
+    await flushPromises();
     expect(wrapper.emitted()['show-suggested-tags']).toBeTruthy();
   });
 
@@ -191,7 +196,7 @@ describe('FilterInput', () => {
     await wrapper.vm.$nextTick();
     expect(document.activeElement).not.toBe(input.element);
     // create component with input value
-    wrapper = shallowMount(FilterInput, {
+    wrapper = mount(FilterInput, {
       propsData: {
         ...propsData,
         value: 'Change',
@@ -206,6 +211,8 @@ describe('FilterInput', () => {
 
   describe('copy/paste', () => {
     let clipboardData = {};
+    const copyPasteTags = ['tag', 'tag2'];
+    const copyPasteTagsNormalizes = normalizeTags(copyPasteTags);
 
     beforeEach(() => {
       clipboardData = {
@@ -214,7 +221,7 @@ describe('FilterInput', () => {
           if (param === 'text/plain') return 'baz';
           return prepareDataForHTMLClipboard({
             input: 'baz',
-            tags: ['tag', 'tag2'],
+            tags: copyPasteTagsNormalizes,
           });
         }),
         types: ['text/plain'],
@@ -223,11 +230,12 @@ describe('FilterInput', () => {
       clipboardData.types = ['text/plain'];
     });
 
-    it('copies the search query in both plain text and HTML', () => {
+    it('copies the search query in both plain text and HTML', async () => {
       wrapper.setProps({
         value: inputValue,
         selectedTags: tags,
       });
+      await wrapper.vm.$nextTick();
       // select all the text
       input.trigger('keydown', {
         metaKey: true,
@@ -235,12 +243,13 @@ describe('FilterInput', () => {
       });
       // copy
       input.trigger('copy', { clipboardData });
+      await wrapper.vm.$nextTick();
       // assert the copy payload
       expect(clipboardData.setData).toHaveBeenCalledTimes(2);
       // in HTML
       expect(clipboardData.setData)
         .toHaveBeenNthCalledWith(1, 'text/html', prepareDataForHTMLClipboard({
-          tags,
+          tags: tagsNormalized,
           input: inputValue,
         }));
       // in Plain text
@@ -248,47 +257,54 @@ describe('FilterInput', () => {
         .toHaveBeenNthCalledWith(2, 'text/plain', 'Tag1 Tag2 Foo');
     });
 
-    it('does not copy tags, if they are not selected', () => {
+    it('does not copy tags, if they are not selected', async () => {
       // getSelectionText is mocked to be the input value
       wrapper.setProps({
         value: inputValue,
         selectedTags: tags,
       });
+      await wrapper.vm.$nextTick();
       // copy
       input.trigger('copy', { clipboardData });
+      await wrapper.vm.$nextTick();
       expect(clipboardData.setData)
         .toHaveBeenNthCalledWith(2, 'text/plain', 'Foo');
     });
 
-    it('does not copy, if nothing is selected', () => {
+    it('does not copy, if nothing is selected', async () => {
       wrapper.setProps({
         value: inputValue,
       });
+      await wrapper.vm.$nextTick();
       getSelectionText.mockReturnValueOnce('');
       // copy
       input.trigger('copy', { clipboardData });
+      await wrapper.vm.$nextTick();
       expect(clipboardData.setData)
         .toHaveBeenCalledTimes(0);
     });
 
-    it('does not cut, if nothing is selected', () => {
+    it('does not cut, if nothing is selected', async () => {
       wrapper.setProps({
         value: inputValue,
       });
+      await wrapper.vm.$nextTick();
       getSelectionText.mockReturnValueOnce('');
       // copy
       input.trigger('cut', { clipboardData });
+      await wrapper.vm.$nextTick();
       expect(clipboardData.setData)
         .toHaveBeenCalledTimes(0);
       expect(wrapper.emitted('input')).toBeFalsy();
       expect(wrapper.emitted('update:selectedTags')).toBeFalsy();
     });
 
-    it('cuts selected text and tags', () => {
+    it('cuts selected text and tags', async () => {
       wrapper.setProps({
         value: inputValue,
         selectedTags: tags,
       });
+      await wrapper.vm.$nextTick();
       // select all the text
       input.trigger('keydown', {
         metaKey: true,
@@ -296,11 +312,12 @@ describe('FilterInput', () => {
       });
       // copy
       input.trigger('cut', { clipboardData });
+      await wrapper.vm.$nextTick();
       // assert the data is copied
       expect(clipboardData.setData).toHaveBeenCalledTimes(2);
       expect(clipboardData.setData)
         .toHaveBeenNthCalledWith(1, 'text/html', prepareDataForHTMLClipboard({
-          tags,
+          tags: tagsNormalized,
           input: inputValue,
         }));
       // in Plain text
@@ -311,18 +328,20 @@ describe('FilterInput', () => {
       expect(wrapper.emitted('input')[0][0]).toEqual('');
     });
 
-    it('selects all tags, and focuses the first one, input is empty', () => {
+    it('selects all tags, and focuses the first one, input is empty', async () => {
       const spy = jest.spyOn(keyboardNavigation.methods, 'focusIndex');
       wrapper.setProps({
         selectedTags: tags,
         value: '',
       });
+      await wrapper.vm.$nextTick();
       const selectedTags = wrapper.find({ ref: 'selectedTags' });
       input.trigger('keydown', {
         key: 'a',
         metaKey: true,
       });
-      expect(selectedTags.props('activeTags')).toEqual(tags);
+      await wrapper.vm.$nextTick();
+      expect(selectedTags.props('activeTags')).toEqual(tagsNormalized);
       // assert we tried to ficus first item
       expect(spy).toHaveBeenCalledWith(0);
     });
@@ -378,13 +397,14 @@ describe('FilterInput', () => {
       expect(wrapper.emitted('update:selectedTags')[0]).toEqual([[]]);
     });
 
-    it('on paste, overwrites all the tags if they are selected', () => {
+    it('on paste, overwrites all the tags if they are selected', async () => {
       clipboardData.types.push('text/html');
       // add pre-selected tags
       wrapper.setProps({
         selectedTags: tags,
         input: 'Foo',
       });
+      await wrapper.vm.$nextTick();
       // select all
       const selectedTags = wrapper.find({ ref: 'selectedTags' });
       selectedTags.vm.$emit('select-all');
@@ -396,12 +416,13 @@ describe('FilterInput', () => {
         .toEqual(['tag', 'tag2']);
     });
 
-    it('on paste, adds tags to the already selected, removing duplicates', () => {
+    it('on paste, adds tags to the already selected, removing duplicates', async () => {
       clipboardData.types.push('text/html');
       // add pre-selected tags
       wrapper.setProps({
         selectedTags: ['tag'],
       });
+      await wrapper.vm.$nextTick();
 
       input.trigger('paste', { clipboardData });
       // assert that tags are overwritten
@@ -410,16 +431,18 @@ describe('FilterInput', () => {
         .toEqual(['tag', 'tag2']);
     });
 
-    it('on paste, overwrites just the selected part of the input text', () => {
+    it('on paste, overwrites just the selected part of the input text', async () => {
       getSelectionText.mockImplementationOnce(() => 'part');
       wrapper.setProps({
         value: 'partial input',
       });
+      await wrapper.vm.$nextTick();
+
       input.trigger('paste', { clipboardData });
       expect(wrapper.emitted('input')[0][0]).toBe('bazial input');
     });
 
-    it('on paste, inserts the text, at the position, where the caret is, if no text is selected', () => {
+    it('on paste, inserts the text, at the position, where the caret is, if no text is selected', async () => {
       // overwrite the currently selected element position
       Object.defineProperty(document.activeElement, 'selectionStart', {
         value: 2,
@@ -429,6 +452,7 @@ describe('FilterInput', () => {
       wrapper.setProps({
         value: 'input',
       });
+      await wrapper.vm.$nextTick();
       input.trigger('paste', { clipboardData });
       expect(wrapper.emitted('input')[0][0]).toBe('infactput');
     });
@@ -440,24 +464,29 @@ describe('FilterInput', () => {
     const relatedTargetCard = document.createElement('a');
     document.body.appendChild(relatedTargetCard);
 
-    beforeEach(() => {
+    beforeEach(async () => {
       // show the suggested tags
       wrapper.find('.filter').trigger('focus');
+      await wrapper.vm.$nextTick();
 
       suggestedTags = wrapper.find({ ref: 'suggestedTags' });
       deleteButton = wrapper.find('.filter__delete-button');
     });
 
-    it('limits the amount of rendered, if `shouldTruncateTags` is `true`', () => {
+    it('limits the amount of rendered, if `shouldTruncateTags` is `true`', async () => {
       const newTags = ['a', 'b', 'c', 'd', 'e', 'f'];
+      const normalized = normalizeTags(newTags);
       wrapper.setProps({
         tags: newTags,
       });
-      expect(suggestedTags.props('tags')).toEqual(newTags);
+      await wrapper.vm.$nextTick();
+
+      expect(suggestedTags.props('tags')).toEqual(normalized);
       wrapper.setProps({
         shouldTruncateTags: true,
       });
-      expect(suggestedTags.props('tags')).toEqual(newTags.slice(0, TagLimit));
+      await wrapper.vm.$nextTick();
+      expect(suggestedTags.props('tags')).toEqual(normalized.slice(0, TagLimit));
     });
 
     it('renders `deleteButton` when there are tags and they are shown', () => {
@@ -466,37 +495,42 @@ describe('FilterInput', () => {
 
     it('renders `suggestedTags` component when `displaySuggestedTags` is true', () => {
       expect(suggestedTags.exists()).toBe(true);
-      expect(suggestedTags.props('tags')).toEqual(propsData.tags);
+      expect(suggestedTags.props('tags')).toEqual(tagsNormalized);
     });
 
-    it('adds the correct aria label to `suggestedTags` component', () => {
+    it('adds the correct aria label to `suggestedTags` component', async () => {
       expect(suggestedTags.props()).toHaveProperty('id', SuggestedTagsId);
       expect(suggestedTags.props()).toHaveProperty('ariaLabel', 'Suggested tags');
       wrapper.setProps({ tags: ['1'] });
+      await wrapper.vm.$nextTick();
       expect(suggestedTags.props()).toHaveProperty('ariaLabel', 'Suggested tag');
     });
 
-    it('keeps `suggestedTags` component when `suggestedTags` gets focus instead of `input`', () => {
+    it('keeps `suggestedTags` component when `suggestedTags` gets focus instead of `input`', async () => {
       suggestedTags.trigger('focus');
+      await wrapper.vm.$nextTick();
       expect(wrapper.emitted('show-suggested-tags')).toBeTruthy();
       expect(suggestedTags.exists()).toBe(true);
     });
 
-    it('keeps `suggestedTags` component when `deleteButton` gets focus instead of `input`', () => {
+    it('keeps `suggestedTags` component when `deleteButton` gets focus instead of `input`', async () => {
       deleteButton.trigger('focus');
+      await wrapper.vm.$nextTick();
       expect(wrapper.emitted('show-suggested-tags')).toBeTruthy();
       expect(suggestedTags.exists()).toBe(true);
     });
 
     it('removes `suggestedTags` component when `suggestedTags` looses its focus on an external component', async () => {
       suggestedTags.trigger('focus');
+      await wrapper.vm.$nextTick();
+
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true]]);
       expect(wrapper.find({ ref: 'suggestedTags' }).exists()).toBe(true);
 
       suggestedTags.trigger('blur', {
         relatedTarget: relatedTargetCard,
       });
-      await wrapper.vm.$nextTick();
+      await flushPromises();
       // first time was `true`, from `focus`, then `blur` made it `false`
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true], [false]]);
       expect(suggestedTags.exists()).toBe(false);
@@ -504,13 +538,15 @@ describe('FilterInput', () => {
 
     it('deletes `suggestedTags` component when `deleteButton` looses its focus on an external component', async () => {
       deleteButton.trigger('focus');
+      await wrapper.vm.$nextTick();
+
       expect(deleteButton.exists()).toBe(true);
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true]]);
 
       deleteButton.trigger('blur', {
         relatedTarget: relatedTargetCard,
       });
-      await wrapper.vm.$nextTick();
+      await flushPromises();
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true], [false]]);
       expect(suggestedTags.exists()).toBe(false);
     });
@@ -548,7 +584,7 @@ describe('FilterInput', () => {
         relatedTarget: relatedTargetOther,
       });
 
-      await wrapper.vm.$nextTick();
+      await flushPromises();
       expect(suggestedTags.exists()).toBe(false);
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true], [false]]);
     });
@@ -566,8 +602,9 @@ describe('FilterInput', () => {
     });
 
     describe('when there is no tags shown', () => {
-      beforeEach(() => {
+      beforeEach(async () => {
         wrapper.setProps({ tags: [] });
+        await wrapper.vm.$nextTick();
         deleteButton = wrapper.find('.filter__delete-button');
       });
 
@@ -579,9 +616,10 @@ describe('FilterInput', () => {
         expect(deleteButton.exists()).toBe(false);
       });
 
-      it('renders `deleteButton` when there are no tags or they are not shown but there is text on `input`', () => {
+      it('renders `deleteButton` when there are no tags or they are not shown but there is text on `input`', async () => {
         expect(deleteButton.exists()).toBe(false);
         wrapper.setProps({ value: 'foo' });
+        await wrapper.vm.$nextTick();
 
         deleteButton = wrapper.find('.filter__delete-button');
         expect(deleteButton.exists()).toBe(true);
@@ -589,25 +627,41 @@ describe('FilterInput', () => {
     });
 
     it('adds tag to `selectedTags` when it is clicked, clearing the filter', () => {
-      const selectedTag = 'Tag1';
-      suggestedTags.vm.$emit('click-tags', { tagName: selectedTag });
-      expect(wrapper.emitted('update:selectedTags')).toEqual([[[selectedTag]]]);
+      const selectedTag = { label: 'Tag1', id: 'tag-1' };
+      suggestedTags.vm.$emit('click-tags', { tag: selectedTag });
+      // we assert that the update event is called with a string,
+      // because its passed a list of strings initially for `tags`.
+      expect(wrapper.emitted('update:selectedTags')).toEqual([[[selectedTag.label]]]);
       expect(wrapper.emitted('input')).toEqual([['']]);
     });
 
-    it('adds tag to `selectedTags` when it is clicked, without clearing the filter', () => {
+    it('adds tag to `selectedTags`, when it is clicked, using a TagObject', async () => {
+      wrapper.setProps({
+        tags: tagsNormalized,
+      });
+      await wrapper.vm.$nextTick();
+
+      suggestedTags.vm.$emit('click-tags', { tag: tagsNormalized[1] });
+      // we assert that the update event is called with the same type of tags, that its passed
+      expect(wrapper.emitted('update:selectedTags')).toEqual([[[tagsNormalized[1]]]]);
+      expect(wrapper.emitted('input')).toEqual([['']]);
+    });
+
+    it('adds tag to `selectedTags` when it is clicked, without clearing the filter', async () => {
       wrapper.setProps({
         clearFilterOnTagSelect: false,
       });
-      const selectedTag = 'Tag1';
-      suggestedTags.vm.$emit('click-tags', { tagName: selectedTag });
-      expect(wrapper.emitted('update:selectedTags')).toEqual([[[selectedTag]]]);
+      await wrapper.vm.$nextTick();
+
+      suggestedTags.vm.$emit('click-tags', { tag: tagsNormalized[1] });
+      expect(wrapper.emitted('update:selectedTags')).toEqual([[[tags[1]]]]);
       expect(wrapper.emitted('input')).toBeFalsy();
     });
 
     describe('when a tag is selected', () => {
       let selectedTagsComponent;
       const selectedTag = 'Tag1';
+      const selectedTagNormalized = { id: selectedTag, label: selectedTag };
 
       beforeEach(async () => {
         // make sure focus is inside the wrapper
@@ -621,7 +675,7 @@ describe('FilterInput', () => {
 
       it('renders `selectedTags` component with selected tag', () => {
         expect(selectedTagsComponent.exists()).toBe(true);
-        expect(selectedTagsComponent.props('tags')).toEqual([selectedTag]);
+        expect(selectedTagsComponent.props('tags')).toEqual([selectedTagNormalized]);
         expect(selectedTagsComponent.props()).toHaveProperty('areTagsRemovable', true);
       });
 
@@ -678,9 +732,8 @@ describe('FilterInput', () => {
       it('select latest selected tag, if delete key is pressed on keyboard, and there is no input text', () => {
         const spy = jest.spyOn(keyboardNavigation.methods, 'focusLast').mockReturnValueOnce();
 
-        wrapper = shallowMount(FilterInput, {
+        wrapper = mount(FilterInput, {
           propsData: { selectedTags: [selectedTag] },
-          stubs: { TagList },
         });
 
         input = wrapper.find({ ref: 'input' });
@@ -691,7 +744,9 @@ describe('FilterInput', () => {
 
       it('does not move the cursor to the beginning of the input when selected tags have all been deleted', async () => {
         wrapper.setProps({ value: 'Foo' });
-        wrapper.find({ ref: 'selectedTags' }).vm.$emit('delete-tag', selectedTag);
+        await flushPromises();
+        wrapper.find({ ref: 'selectedTags' }).vm.$emit('delete-tag', { tag: selectedTagNormalized });
+        await wrapper.vm.$nextTick();
         wrapper.setProps({ selectedTags: [] });
         await flushPromises();
         expect(document.activeElement).toEqual(input.element);
@@ -702,9 +757,10 @@ describe('FilterInput', () => {
         const updatedSelectedTag = 'AppKit';
         // prepare
         wrapper.setProps({ selectedTags: [selectedTag, updatedSelectedTag], input: 'Foo' });
+        await flushPromises();
         // delete a tag
         selectedTagsComponent.vm.$emit('delete-tag', {
-          tagName: selectedTag,
+          tag: selectedTagNormalized,
           event: new KeyboardEvent('keydown', { key: 'Backspace' }),
         });
 
@@ -721,7 +777,7 @@ describe('FilterInput', () => {
         wrapper.setProps({ selectedTags: [selectedTag, updatedSelectedTag], input: 'Foo' });
         // delete a tag
         wrapper.find({ ref: 'selectedTags' }).vm.$emit('delete-tag', {
-          tagName: selectedTag,
+          tag: selectedTagNormalized,
           event: new KeyboardEvent('keydown', { key: 'k' }),
         });
 
@@ -735,6 +791,7 @@ describe('FilterInput', () => {
 
       it('reset filters if delete key is pressed on input when input and tags are selected', async () => {
         wrapper.setProps({ value: 'foo', selectedTags: [selectedTag] });
+        await wrapper.vm.$nextTick();
 
         input.trigger('keydown', {
           key: 'a',
@@ -813,11 +870,12 @@ describe('FilterInput', () => {
       });
 
       it('deletes selected tag when tag is clicked on a virtual keyboard', async () => {
+        const Tag2 = 'Tag2';
         wrapper.setData({ keyboardIsVirtual: true });
-        wrapper.setProps({ selectedTags: [selectedTag, 'Tag2'] });
-        await wrapper.vm.$nextTick();
+        wrapper.setProps({ selectedTags: [selectedTag, Tag2] });
+        await flushPromises();
 
-        selectedTagsComponent.vm.$emit('click-tags', { tagName: 'Tag2' });
+        selectedTagsComponent.vm.$emit('click-tags', { tag: { id: Tag2, label: Tag2 } });
         await flushPromises();
 
         expect(wrapper.emitted('update:selectedTags')).toEqual([[[selectedTag]]]);
@@ -827,7 +885,7 @@ describe('FilterInput', () => {
         wrapper.setData({ keyboardIsVirtual: true });
 
         const selectedTags = wrapper.find({ ref: 'selectedTags' });
-        selectedTags.vm.$emit('click-tags', { tagName: selectedTag });
+        selectedTags.vm.$emit('click-tags', { tag: { id: selectedTag } });
         expect(debounce).toHaveBeenLastCalledWith(wrapper.vm.handleDeleteTag, 280);
         await flushPromises();
         expect(wrapper.emitted('update:selectedTags')).toEqual([[[]]]);
@@ -843,7 +901,10 @@ describe('FilterInput', () => {
 
     it('resets filters when `deleteButton` is clicked', async () => {
       wrapper.setProps({ value: '', selectedTags: [] });
+      await wrapper.vm.$nextTick();
+
       deleteButton.trigger('click');
+      await wrapper.vm.$nextTick();
 
       // last emitted item is false. We have one true, because we focused.
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true], [false]]);
@@ -853,7 +914,9 @@ describe('FilterInput', () => {
       expect(wrapper.vm.resetedTagsViaDeleteButton).toEqual(true);
 
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
       deleteButton.trigger('click');
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('show-suggested-tags')).toEqual([[true], [false]]);
       expect(wrapper.emitted('input')).toEqual([[''], ['']]);
@@ -862,8 +925,9 @@ describe('FilterInput', () => {
       expect(wrapper.vm.resetedTagsViaDeleteButton).toEqual(true);
     });
 
-    it('emits `focus-next` if the down key is pressed on input and there is no suggestedTags', () => {
+    it('emits `focus-next` if the down key is pressed on input and there is no suggestedTags', async () => {
       wrapper.setProps({ tags: [] });
+      await wrapper.vm.$nextTick();
       input = wrapper.find('input');
 
       input.trigger('keydown.down');
@@ -879,20 +943,25 @@ describe('FilterInput', () => {
       expect(spy).toHaveBeenCalledTimes(1);
     });
 
-    it('emits `focus-next` if the down key is pressed on input, and with `positionReversed`', () => {
+    it('emits `focus-next` if the down key is pressed on input, and with `positionReversed`', async () => {
       wrapper.setProps({ positionReversed: true });
+      await wrapper.vm.$nextTick();
+
       input = wrapper.find('input');
 
       input.trigger('keydown.down');
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('focus-next')).toBeTruthy();
     });
 
-    it('emits `focus-prev` if the up key is pressed on input and there is no suggestedTags', () => {
+    it('emits `focus-prev` if the up key is pressed on input and there is no suggestedTags', async () => {
       wrapper.setProps({ tags: [] });
+      await wrapper.vm.$nextTick();
       input = wrapper.find('input');
 
       input.trigger('keydown.up');
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('focus-prev')).toBeTruthy();
     });
@@ -905,10 +974,12 @@ describe('FilterInput', () => {
       expect(wrapper.emitted('focus-prev')).toBeTruthy();
     });
 
-    it('focuses the first tag, if the up key is pressed on input, and `positionReversed` is true', () => {
+    it('focuses the first tag, if the up key is pressed on input, and `positionReversed` is true', async () => {
       wrapper.setProps({ positionReversed: true });
+      await wrapper.vm.$nextTick();
       const spy = jest.spyOn(suggestedTags.vm, 'focusFirst');
       input.trigger('keydown.up');
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('keydown:up')).toBeFalsy();
       expect(spy).toHaveBeenCalledTimes(1);
@@ -917,12 +988,14 @@ describe('FilterInput', () => {
     it('resets all the filters after the user selects all the content and writes over it, if key is a single character', async () => {
       isSingleCharacter.mockImplementation(() => true);
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
 
       const singleCharacter = 'a';
 
       wrapper.find({ ref: 'selectedTags' }).vm.$emit('select-all');
       input.trigger('keydown', { key: singleCharacter });
       input.setValue(singleCharacter);
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('input')).toEqual([[''], [singleCharacter]]);
       expect(wrapper.emitted('update:selectedTags')).toEqual([[[]]]);
@@ -933,6 +1006,7 @@ describe('FilterInput', () => {
     it('resets all the filters, if user selects all text and enters a character with pressing shift', async () => {
       isSingleCharacter.mockImplementation(() => true);
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
 
       const singleCharacter = 'A';
 
@@ -943,6 +1017,7 @@ describe('FilterInput', () => {
         shiftKey: true,
       });
       input.setValue(singleCharacter);
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('input')).toEqual([[''], [singleCharacter]]);
       expect(wrapper.emitted('update:selectedTags')).toEqual([[[]]]);
@@ -950,19 +1025,22 @@ describe('FilterInput', () => {
       expect(document.activeElement).toBe(input.element);
     });
 
-    it('does not reset all the filters after the user selects all the content and types something on top if key is not a single character', () => {
+    it('does not reset all the filters after the user selects all the content and types something on top if key is not a single character', async () => {
       isSingleCharacter.mockImplementation(() => false);
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
 
       const nonSingleCharacter = '>';
 
       wrapper.find({ ref: 'selectedTags' }).vm.$emit('select-all');
       input.trigger('keydown', { key: nonSingleCharacter });
+      await wrapper.vm.$nextTick();
 
       input.trigger('keydown', {
         key: nonSingleCharacter,
         shiftKey: true,
       });
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.emitted('input')).toBeFalsy();
       expect(wrapper.emitted('update:selectedTags')).toBeFalsy();
@@ -978,54 +1056,65 @@ describe('FilterInput', () => {
       expect(wrapper.emitted('update:selectedTags')).toBeFalsy();
     });
 
-    it('focuses selected tags if `select-all` is emitted from selectedTags and input has value', () => {
+    it('focuses selected tags if `select-all` is emitted from selectedTags and input has value', async () => {
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
+
       const selectedTags = wrapper.find({ ref: 'selectedTags' });
       selectedTags.vm.$emit('select-all');
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.vm.selectedTag).toEqual(wrapper.vm.activeTag);
     });
 
-    it('focuses selected tags if `cmd + a` is triggered on input that has a value', () => {
+    it('focuses selected tags if `cmd + a` is triggered on input that has a value', async () => {
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
       input.trigger('keydown', {
         key: 'a',
         metaKey: true,
       });
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.vm.selectedTag).toEqual(wrapper.vm.activeTag);
     });
 
-    it('does not focus selected tags if `cmd + a` is triggered on input that has a value and then user clicks on input', () => {
+    it('does not focus selected tags if `cmd + a` is triggered on input that has a value and then user clicks on input', async () => {
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
+
       input.trigger('keydown', {
         key: 'a',
         metaKey: true,
       });
+      await wrapper.vm.$nextTick();
 
       input.trigger('click');
 
       expect(wrapper.vm.activeTags).toEqual([]);
     });
 
-    it('focuses selected tags if `ctrl + a` is triggered on input that has a value', () => {
+    it('focuses selected tags if `ctrl + a` is triggered on input that has a value', async () => {
       wrapper.setProps({ value: 'foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
       input.trigger('keydown', {
         key: 'a',
         ctrlKey: true,
       });
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.vm.selectedTag).toEqual(wrapper.vm.activeTag);
     });
 
-    it('focus on the first tag of selectedTags if cmd + a is triggered on an empty input, there is not a shift init tag and there are selected tags', () => {
+    it('focus on the first tag of selectedTags if cmd + a is triggered on an empty input, there is not a shift init tag and there are selected tags', async () => {
       const spy = jest.spyOn(TagList.methods, 'focusTag').mockReturnValueOnce();
-      wrapper = shallowMount(FilterInput, {
+      wrapper = mount(FilterInput, {
         propsData,
         stubs: { TagList },
       });
 
       wrapper.setProps({ value: '', selectedTags: tags });
+      await wrapper.vm.$nextTick();
       wrapper.find({ ref: 'input' }).trigger('keydown', {
         key: 'a',
         metaKey: true,
@@ -1033,18 +1122,23 @@ describe('FilterInput', () => {
       expect(spy).toHaveBeenCalledTimes(1);
     });
 
-    it('assigns selected tags to active tags when cmd + a is triggered on input', () => {
+    it('assigns selected tags to active tags when cmd + a is triggered on input', async () => {
       wrapper.setProps({ value: 'Foo', selectedTags: tags });
+      await wrapper.vm.$nextTick();
       const selectedTagsComponent = wrapper.find({ ref: 'selectedTags' });
       wrapper.find({ ref: 'input' }).trigger('keydown', {
         key: 'a',
         metaKey: true,
       });
-      expect(selectedTagsComponent.props('activeTags')).toEqual(wrapper.vm.selectedTags);
+      await wrapper.vm.$nextTick();
+      expect(selectedTagsComponent.props('activeTags'))
+        .toEqual(normalizeTags(wrapper.vm.selectedTags));
     });
 
     it('focus on the first tag when the left key is triggered on a selected input and tags are selected as well', async () => {
       wrapper.setProps({ selectedTags: tags });
+      await wrapper.vm.$nextTick();
+
       const selectedTagsComponent = wrapper.find({ ref: 'selectedTags' });
 
       const spy = jest.spyOn(selectedTagsComponent.vm, 'focusTag').mockReturnValueOnce();
@@ -1092,8 +1186,9 @@ describe('FilterInput', () => {
       expect(document.activeElement).toEqual(input.element);
     });
 
-    it('emits `focus-prev`, when @focus-prev is called from SuggestedTags, with positionReversed', () => {
+    it('emits `focus-prev`, when @focus-prev is called from SuggestedTags, with positionReversed', async () => {
       wrapper.setProps({ positionReversed: true });
+      await wrapper.vm.$nextTick();
 
       wrapper.find({ ref: 'suggestedTags' }).vm.$emit('focus-prev');
       expect(wrapper.emitted('focus-prev')).toHaveLength(1);
@@ -1105,33 +1200,38 @@ describe('FilterInput', () => {
       expect(document.activeElement).toEqual(input.element);
     });
 
-    it('focus on the last tag when the left key is triggered, on a selected input, and but tags are not highlighted', () => {
+    it('focus on the last tag when the left key is triggered, on a selected input, and but tags are not highlighted', async () => {
       wrapper.setProps({ selectedTags: tags });
+      await wrapper.vm.$nextTick();
 
       const spy = jest.spyOn(wrapper.find({ ref: 'selectedTags' }).vm, 'focusLast')
         .mockReturnValueOnce();
 
       input.element.select();
       input.trigger('keydown.left');
+      await wrapper.vm.$nextTick();
 
       expect(spy).toHaveBeenCalledTimes(1);
     });
 
-    it('focus on the last tag when the left key is triggered on input, with no highlighted tags', () => {
+    it('focus on the last tag when the left key is triggered on input, with no highlighted tags', async () => {
       wrapper.setProps({ selectedTags: tags });
+      await wrapper.vm.$nextTick();
 
       const spy = jest.spyOn(wrapper.find({ ref: 'selectedTags' }).vm, 'focusLast')
         .mockReturnValueOnce();
 
       // input is is not selected, but the cursor is at the first item
       input.trigger('keydown.left');
+      await wrapper.vm.$nextTick();
 
       expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Shift and Meta selection', () => {
-    const selectedTags = ['Tag1', 'Tag2', 'Tag3'];
+    const selectedTagsRaw = ['Tag1', 'Tag2', 'Tag3'];
+    const selectedTags = normalizeTags(selectedTagsRaw);
     let spyFocusTag;
     let selectedTagsComponent;
     let spySetSelectionRange;
@@ -1140,7 +1240,7 @@ describe('FilterInput', () => {
       beforeEach(async () => {
         jest.resetAllMocks();
         wrapper.setProps({
-          selectedTags,
+          selectedTags: selectedTagsRaw,
           value: inputValue,
         });
 
@@ -1150,7 +1250,7 @@ describe('FilterInput', () => {
         spySetSelectionRange = jest.spyOn(input.element, 'setSelectionRange');
       });
 
-      it('selects the whole range between the text input and tag that has been focused afterwards', () => {
+      it('selects the whole range between the text input and tag that has been focused afterwards', async () => {
         // Put cursor on the second position of the input
         // eslint-disable-next-line
         input.element.selectionStart = input.element.selectionEnd = 2;
@@ -1160,9 +1260,10 @@ describe('FilterInput', () => {
 
         // Focus on the first tag
         selectedTagsComponent.vm.$emit('focus', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: { relatedTarget: document.createElement('input') },
         });
+        await wrapper.vm.$nextTick();
 
         // All tags should be active
         expect(wrapper.vm.activeTags).toEqual(selectedTags);
@@ -1180,7 +1281,7 @@ describe('FilterInput', () => {
 
         // Focus on the middle tag
         selectedTagsComponent.vm.$emit('focus', {
-          tagName: selectedTags[1],
+          tag: selectedTags[1],
           event: { relatedTarget: document.createElement('input') },
         });
 
@@ -1206,12 +1307,12 @@ describe('FilterInput', () => {
 
           // Press left key + shift on the last tag
           selectedTagsComponent.vm.$emit('keydown', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown.left', { shiftKey: true }),
           });
 
           // Previous tag get focus
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[1] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[1] });
 
           // Last two tags get active
           expect(wrapper.vm.activeTags).toEqual([selectedTags[1], selectedTags[2]]);
@@ -1220,21 +1321,21 @@ describe('FilterInput', () => {
         it('unselects tags from left to right', () => {
           // Press left key + shift on the last tag
           selectedTagsComponent.vm.$emit('keydown', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown.left', { shiftKey: true }),
           });
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[1] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[1] });
 
           // Last two tags get active
           expect(wrapper.vm.activeTags).toEqual([selectedTags[1], selectedTags[2]]);
 
           // Press right key + shift when focusing on the middle tag
           selectedTagsComponent.vm.$emit('keydown', {
-            tagName: selectedTags[1],
+            tag: selectedTags[1],
             event: new KeyboardEvent('keydown.right', { shiftKey: true }),
           });
           // Last tag get focus
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[2] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[2] });
 
           // Only the last tag get active
           expect(wrapper.vm.activeTags).toEqual([selectedTags[2]]);
@@ -1243,17 +1344,17 @@ describe('FilterInput', () => {
         it('unselects tags clicking on them using the meta key', () => {
           // Press left key + shift on the last tag
           selectedTagsComponent.vm.$emit('keydown', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown.left', { shiftKey: true }),
           });
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[1] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[1] });
 
           // Last two tags get active
           expect(wrapper.vm.activeTags).toEqual([selectedTags[1], selectedTags[2]]);
 
           // Click on the selected tag 1 while pressing the metaKey
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[1],
+            tag: selectedTags[1],
             event: new MouseEvent('click', { metaKey: true }),
           });
 
@@ -1264,17 +1365,17 @@ describe('FilterInput', () => {
         it('unselects tags clicking on them using the ctrl key', () => {
           // Press left key + shift on the last tag
           selectedTagsComponent.vm.$emit('keydown', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown.left', { shiftKey: true }),
           });
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[1] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[1] });
 
           // Last two tags get active
           expect(wrapper.vm.activeTags).toEqual([selectedTags[1], selectedTags[2]]);
 
           // Click on the selected tag 1 while pressing the control key
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[1],
+            tag: selectedTags[1],
             event: new MouseEvent('click', { ctrlKey: true }),
           });
 
@@ -1286,7 +1387,7 @@ describe('FilterInput', () => {
           input.trigger('keydown', { key: 'Tab', shiftKey: true });
           expect(wrapper.vm.activeTags).toEqual([]);
 
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[2] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[2] });
           expect(wrapper.vm.activeTags).toEqual([]);
         });
       });
@@ -1295,7 +1396,7 @@ describe('FilterInput', () => {
     describe('starting from tags', () => {
       beforeEach(async () => {
         jest.resetAllMocks();
-        wrapper.setProps({ selectedTags });
+        wrapper.setProps({ selectedTags: selectedTagsRaw });
         await wrapper.vm.$nextTick();
         selectedTagsComponent = wrapper.find({ ref: 'selectedTags' });
         spyFocusTag = jest.spyOn(selectedTagsComponent.vm, 'focusTag').mockReturnValueOnce();
@@ -1303,10 +1404,10 @@ describe('FilterInput', () => {
 
       it('selects the whole range between the init tag index and the focused tag index from right to left', () => {
         selectedTagsComponent.vm.$emit('keydown', {
-          tagName: selectedTags[2],
+          tag: selectedTags[2],
           event: new KeyboardEvent('keydown', { shiftKey: true }),
         });
-        selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[0] });
+        selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[0] });
 
         expect(wrapper.vm.activeTags).toEqual(selectedTags);
       });
@@ -1314,7 +1415,7 @@ describe('FilterInput', () => {
       it('keeps tags selected when focusing on the input after pressing on the right key on the last tag', async () => {
         // Press right key + shift on the last tag
         selectedTagsComponent.vm.$emit('keydown', {
-          tagName: selectedTags[2],
+          tag: selectedTags[2],
           event: new KeyboardEvent('keydown.right', { shiftKey: true }),
         });
 
@@ -1329,13 +1430,13 @@ describe('FilterInput', () => {
         const relatedTargetCard = document.createElement('a');
         // Select init tag
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: new MouseEvent('click'),
         });
 
         // Trigger shift + meta + arrow right
         selectedTagsComponent.vm.$emit('keydown', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: new KeyboardEvent('keydown', { shiftKey: true, metaKey: true, key: 'ArrowRight' }),
         });
 
@@ -1345,7 +1446,7 @@ describe('FilterInput', () => {
 
         // Select init tag again to reset active tags
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: new MouseEvent('click'),
         });
 
@@ -1358,7 +1459,7 @@ describe('FilterInput', () => {
 
         // Trigger shift + ctrl + arrow right
         selectedTagsComponent.vm.$emit('keydown', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: new KeyboardEvent('keydown', { shiftKey: true, ctrlKey: true, key: 'ArrowRight' }),
         });
 
@@ -1370,13 +1471,13 @@ describe('FilterInput', () => {
       it('selects the whole range between the init tag index and the start of the active tags from right to left', () => {
         // Select init tag
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[2],
+          tag: selectedTags[2],
           event: new MouseEvent('click'),
         });
 
         // Trigger shift + meta + arrow left
         selectedTagsComponent.vm.$emit('keydown', {
-          tagName: selectedTags[2],
+          tag: selectedTags[2],
           event: new KeyboardEvent('keydown', { shiftKey: true, metaKey: true, key: 'ArrowLeft' }),
         });
 
@@ -1386,7 +1487,7 @@ describe('FilterInput', () => {
 
         // Select init tag again to reset active tags
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[2],
+          tag: selectedTags[2],
           event: new MouseEvent('click'),
         });
 
@@ -1394,7 +1495,7 @@ describe('FilterInput', () => {
 
         // Trigger shift + ctrl + arrow left
         selectedTagsComponent.vm.$emit('keydown', {
-          tagName: selectedTags[2],
+          tag: selectedTags[2],
           event: new KeyboardEvent('keydown', { shiftKey: true, ctrlKey: true, key: 'ArrowLeft' }),
         });
 
@@ -1406,14 +1507,14 @@ describe('FilterInput', () => {
       it('adds a tag to the selection when user click on it holding the cmd key', () => {
         expect(wrapper.vm.activeTags).toEqual([]);
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[1],
+          tag: selectedTags[1],
           event: new MouseEvent('click', { metaKey: true }),
         });
 
         expect(wrapper.vm.activeTags).toEqual([selectedTags[1]]);
 
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: new MouseEvent('click', { metaKey: true }),
         });
 
@@ -1423,14 +1524,14 @@ describe('FilterInput', () => {
       it('adds a tag to the selection when user click on it holding the ctrl key', () => {
         expect(wrapper.vm.activeTags).toEqual([]);
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[1],
+          tag: selectedTags[1],
           event: new MouseEvent('click', { ctrlKey: true }),
         });
 
         expect(wrapper.vm.activeTags).toEqual([selectedTags[1]]);
 
         selectedTagsComponent.vm.$emit('click-tags', {
-          tagName: selectedTags[0],
+          tag: selectedTags[0],
           event: new MouseEvent('click', { ctrlKey: true }),
         });
 
@@ -1446,7 +1547,7 @@ describe('FilterInput', () => {
         expect(wrapper.vm.initTagIndex).toEqual(selectedTags.length);
         expect(wrapper.vm.activeTags).toEqual([selectedTags[selectedTags.length - 1]]);
 
-        selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[0] });
+        selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[0] });
 
         expect(wrapper.vm.activeTags).toEqual(selectedTags);
       });
@@ -1454,10 +1555,10 @@ describe('FilterInput', () => {
       describe('When the user has selected a tag to init the shift selection', () => {
         beforeEach(async () => {
           selectedTagsComponent.vm.$emit('keydown', {
-            tagName: selectedTags[0],
+            tag: selectedTags[0],
             event: new KeyboardEvent('keydown', { shiftKey: true }),
           });
-          selectedTagsComponent.vm.$emit('focus', { tagName: selectedTags[2] });
+          selectedTagsComponent.vm.$emit('focus', { tag: selectedTags[2] });
         });
 
         it('selects the init tag', () => {
@@ -1481,14 +1582,14 @@ describe('FilterInput', () => {
           const space = ' ';
 
           selectedTagsComponent.vm.$emit('delete-tag', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown', { key: alphanumKey, shiftKey: false }),
           });
 
           expect(wrapper.emitted('update:selectedTags')).toHaveLength(1);
 
           selectedTagsComponent.vm.$emit('delete-tag', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown', { key: space, shiftKey: false }),
           });
 
@@ -1496,7 +1597,7 @@ describe('FilterInput', () => {
 
           // is triggered by only shiftkey modifier combination
           selectedTagsComponent.vm.$emit('delete-tag', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new KeyboardEvent('keydown', { key: alphanumKey, shiftKey: true }),
           });
 
@@ -1509,7 +1610,7 @@ describe('FilterInput', () => {
 
         it('deletes the selection when user types the delete key', () => {
           selectedTagsComponent.vm.$emit('delete-tag', {
-            tagName: selectedTags[0],
+            tag: selectedTags[0],
             event: new KeyboardEvent('keydown', { key: 'Backspace' }),
           });
           expect(wrapper.emitted('update:selectedTags')[0][0]).toEqual([]);
@@ -1518,7 +1619,7 @@ describe('FilterInput', () => {
 
         it('removes a tag from the shift selection when user click on it holding the cmd key', async () => {
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[1],
+            tag: selectedTags[1],
             event: new MouseEvent('click', { metaKey: true }),
           });
 
@@ -1526,7 +1627,7 @@ describe('FilterInput', () => {
           expect(spyFocusTag).toHaveBeenCalledTimes(1);
 
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[0],
+            tag: selectedTags[0],
             event: new MouseEvent('click', { metaKey: true }),
           });
 
@@ -1534,7 +1635,7 @@ describe('FilterInput', () => {
           expect(spyFocusTag).toHaveBeenCalledTimes(2);
 
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new MouseEvent('click', { metaKey: true }),
           });
 
@@ -1548,7 +1649,7 @@ describe('FilterInput', () => {
 
         it('removes a tag from the shift selection when user click on it holding the ctrl key', async () => {
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[1],
+            tag: selectedTags[1],
             event: new MouseEvent('click', { ctrlKey: true }),
           });
 
@@ -1556,7 +1657,7 @@ describe('FilterInput', () => {
           expect(spyFocusTag).toHaveBeenCalledTimes(1);
 
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[0],
+            tag: selectedTags[0],
             event: new MouseEvent('click', { ctrlKey: true }),
           });
 
@@ -1564,7 +1665,7 @@ describe('FilterInput', () => {
           expect(spyFocusTag).toHaveBeenCalledTimes(2);
 
           selectedTagsComponent.vm.$emit('click-tags', {
-            tagName: selectedTags[2],
+            tag: selectedTags[2],
             event: new MouseEvent('click', { ctrlKey: true }),
           });
 

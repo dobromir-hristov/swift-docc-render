@@ -18,9 +18,8 @@ import { parseDataFromClipboard, prepareDataForHTMLClipboard } from 'docc-render
 import { insertAt } from 'docc-render/utils/strings';
 import debounce from 'docc-render/utils/debounce';
 import {
-  allItemsFromIncludedIn,
-  removeDuplicatesFromArrayBy,
-  shallowMergeByProperty,
+  removeDuplicatingItemsBy,
+  shallowMergeDedupeByProperty,
 } from 'docc-render/utils/arrays';
 
 const DebounceDelay = 280;
@@ -51,7 +50,7 @@ export default {
     virtualKeyboardBind: ({ keyboardIsVirtual }) => ({ keyboardIsVirtual }),
     // TODO: Make sure it works
     allSelectedTagsAreActive: ({ selectedTagsNormalized, activeTags }) => (
-      allItemsFromIncludedIn(selectedTagsNormalized, activeTags)
+      selectedTagsNormalized.every(tag => activeTags.find(t => t.id === tag.id))
     ),
     usesStringTags: ({ selectedTags, tags }) => typeof selectedTags[0] === 'string' || typeof tags[0] === 'string',
   },
@@ -83,7 +82,7 @@ export default {
     },
     async deleteHandler(e) {
       if (this.activeTags.length > 0) {
-        this.setSelectedTags(removeDuplicatesFromArrayBy(
+        this.setSelectedTags(removeDuplicatingItemsBy(
           this.selectedTagsNormalized,
           this.activeTags,
           'id',
@@ -489,7 +488,7 @@ export default {
     },
     deleteTags(array) {
       this.setSelectedTags(
-        removeDuplicatesFromArrayBy(this.selectedTagsNormalized, array, 'id'),
+        removeDuplicatingItemsBy(this.selectedTagsNormalized, array, 'id'),
       );
     },
     /**
@@ -499,7 +498,7 @@ export default {
      */
     updateSelectedTags(tags) {
       this.setSelectedTags(
-        shallowMergeByProperty(this.selectedTagsNormalized, tags),
+        shallowMergeDedupeByProperty(this.selectedTagsNormalized, tags),
       );
     },
     /**
@@ -544,7 +543,7 @@ export default {
       // dont overwrite the content, if nothing is copied
       if (!input && !tags.length) return;
       // remove what is copied from the selection and input
-      const remainingTags = removeDuplicatesFromArrayBy(
+      const remainingTags = removeDuplicatingItemsBy(
         this.selectedTagsNormalized, tags, 'id',
       );
       const remainingInput = this.input.replace(input, '');
