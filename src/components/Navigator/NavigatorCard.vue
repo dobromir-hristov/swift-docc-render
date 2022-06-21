@@ -314,10 +314,15 @@ export default {
         this.resetScroll = true;
       },
     },
-    filterPattern: ({ debouncedFilter }) => (!debouncedFilter
-      ? null
+    filterPattern: ({ debouncedFilter }) => {
+      if (!debouncedFilter) return null;
+      const match = /^"(.*)"$/.exec(debouncedFilter);
+      if (match) {
+        return new RegExp(`^${safeHighlightPattern(match[1]).source}$`, 'i');
+      }
       // remove the `g` for global, as that causes bugs when matching
-      : new RegExp(safeHighlightPattern(debouncedFilter), 'i')),
+      return new RegExp(safeHighlightPattern(debouncedFilter), 'i');
+    },
     /**
      * Return the item size for the Scroller element.
      */
