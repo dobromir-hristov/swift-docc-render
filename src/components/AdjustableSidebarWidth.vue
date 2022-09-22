@@ -37,6 +37,7 @@
         />
       </div>
       <div
+        v-if="!disableResizing"
         class="resize-handle"
         @mousedown.prevent="startDrag"
         @touchstart.prevent="startDrag"
@@ -113,6 +114,14 @@ export default {
       type: Boolean,
       default: false,
     },
+    disableResizing: {
+      type: Boolean,
+      default: false,
+    },
+    hardWidth: {
+      type: Number,
+      default: null,
+    },
   },
   data() {
     const windowWidth = window.innerWidth;
@@ -131,7 +140,7 @@ export default {
     return {
       isDragging: false,
       // limit the width to a range
-      width: Math.min(Math.max(storedWidth, minWidth), maxWidth),
+      width: this.hardWidth || Math.min(Math.max(storedWidth, minWidth), maxWidth),
       isTouch: false,
       windowWidth,
       windowHeight,
@@ -146,10 +155,12 @@ export default {
   computed: {
     minWidthPercent: ({ breakpoint }) => minWidthResponsivePercents[breakpoint] || 0,
     maxWidthPercent: ({ breakpoint }) => maxWidthResponsivePercents[breakpoint] || 100,
-    maxWidth: ({ maxWidthPercent, windowWidth }) => (
-      calcWidthPercent(maxWidthPercent, windowWidth)
+    maxWidth: ({ maxWidthPercent, windowWidth, hardWidth }) => (
+      Math.max(hardWidth, calcWidthPercent(maxWidthPercent, windowWidth))
     ),
-    minWidth: ({ minWidthPercent, windowWidth }) => calcWidthPercent(minWidthPercent, windowWidth),
+    minWidth: ({ minWidthPercent, windowWidth, hardWidth }) => (
+      Math.min(hardWidth || windowWidth, calcWidthPercent(minWidthPercent, windowWidth))
+    ),
     widthInPx: ({ width }) => `${width}px`,
     events: ({ isTouch }) => (isTouch ? eventsMap.touch : eventsMap.mouse),
     asideStyles: ({
@@ -417,6 +428,7 @@ export default {
     position: fixed;
     top: var(--top-offset-mobile);
     bottom: 0;
+    left: 0;
     z-index: $nav-z-index + 1;
     transform: translateX(-100%);
     transition: transform 0.15s ease-in;
