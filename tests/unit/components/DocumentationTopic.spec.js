@@ -677,6 +677,16 @@ describe('DocumentationTopic', () => {
     expect(wrapper.contains('.above-hero-content')).toBe(true);
   });
 
+  it('renders content in the `below-content` slot', () => {
+    wrapper = shallowMount(DocumentationTopic, {
+      propsData,
+      slots: {
+        'below-content': '<div class="below-content">Below Content</div>',
+      },
+    });
+    expect(wrapper.contains('.below-content')).toBe(true);
+  });
+
   it('renders `OnThisPageNav` component, if enabled via prop', () => {
     expect(wrapper.find(OnThisPageNav).exists()).toBe(false);
     wrapper.setProps({ enableOnThisPageNav: true });
