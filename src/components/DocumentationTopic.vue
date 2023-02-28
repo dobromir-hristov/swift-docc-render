@@ -630,6 +630,10 @@ export default {
 
   &.minimized-container {
     margin-top: 0;
+
+    /deep/ .declaration-source-link {
+      margin-top: 0.833em;
+    }
   }
 }
 
