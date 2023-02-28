@@ -628,12 +628,12 @@ export default {
 .declarations-container {
   margin-top: 30px;
 
+  /deep/ .declaration-source-link {
+    margin-top: 0.833em;
+  }
+
   &.minimized-container {
     margin-top: 0;
-
-    /deep/ .declaration-source-link {
-      margin-top: 0.833em;
-    }
   }
 }
 
