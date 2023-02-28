@@ -21,7 +21,7 @@
 </template>
 
 <script>
-import SwiftFileIcon from 'docc-render/components/Icons/SwiftFileIcon.vue';
+import SwiftFileIcon from 'theme/components/Icons/SwiftFileIcon.vue';
 import WordBreak from 'docc-render/components/WordBreak.vue';
 
 export default {
