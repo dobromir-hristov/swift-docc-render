@@ -9,9 +9,15 @@
 -->
 
 <template>
-  <component :is="refComponent" :url="urlWithParams" :is-active="isActiveComputed">
-    <slot />
-  </component>
+  <ConditionalWrapper
+    :should-wrap="isDisplaySymbol && shouldShowQuickHelp"
+    :tag="QuickHelpTooltip"
+    :url="urlWithParams"
+  >
+    <component :is="refComponent" :url="urlWithParams" :is-active="isActiveComputed">
+      <slot />
+    </component>
+  </ConditionalWrapper>
 </template>
 
 <script>
@@ -19,6 +25,8 @@ import { buildUrl } from 'docc-render/utils/url-helper';
 import { TopicRole } from 'docc-render/constants/roles';
 
 import { notFoundRouteName } from 'docc-render/constants/router';
+import ConditionalWrapper from '@/components/ConditionalWrapper.vue';
+import QuickHelpTooltip from '@/components/QuickHelp/QuickHelpTooltip.vue';
 import ReferenceExternalSymbol from './ReferenceExternalSymbol.vue';
 import ReferenceExternal from './ReferenceExternal.vue';
 import ReferenceInternalSymbol from './ReferenceInternalSymbol.vue';
@@ -26,7 +34,11 @@ import ReferenceInternal from './ReferenceInternal.vue';
 
 export default {
   name: 'Reference',
+  components: { ConditionalWrapper },
   computed: {
+    QuickHelpTooltip() {
+      return QuickHelpTooltip;
+    },
     isInternal({ url }) {
       if (!url.startsWith('/') && !url.startsWith('#')) {
         // If the URL has a scheme, it's not an internal link.
@@ -47,10 +59,17 @@ export default {
       return this.kind === 'symbol' && !this.hasInlineFormatting
         && (this.role === TopicRole.symbol || this.role === TopicRole.dictionarySymbol);
     },
-    isDisplaySymbol({ isSymbolReference, titleStyle, ideTitle }) {
+    isDisplaySymbol({
+      isSymbolReference,
+      titleStyle,
+      ideTitle,
+    }) {
       return ideTitle ? (isSymbolReference && titleStyle === 'symbol') : isSymbolReference;
     },
-    refComponent({ isInternal, isDisplaySymbol }) {
+    refComponent({
+      isInternal,
+      isDisplaySymbol,
+    }) {
       if (isInternal) {
         return isDisplaySymbol ? ReferenceInternalSymbol : ReferenceInternal;
       }
@@ -59,7 +78,10 @@ export default {
     urlWithParams({ isInternal }) {
       return isInternal ? buildUrl(this.url, this.$route.query) : this.url;
     },
-    isActiveComputed({ url, isActive }) {
+    isActiveComputed({
+      url,
+      isActive,
+    }) {
       return !!(url && isActive);
     },
   },
@@ -91,6 +113,11 @@ export default {
     },
     hasInlineFormatting: {
       type: Boolean,
+      default: false,
+    },
+  },
+  inject: {
+    shouldShowQuickHelp: {
       default: false,
     },
   },

@@ -16,10 +16,25 @@ import App from '@/App.vue';
 import SwiftDocCRenderPlugin from '@/setup-utils/SwiftDocCRenderPlugin';
 import SwiftDocCRenderRouter from '@/setup-utils/SwiftDocCRenderRouter';
 import SwiftDocCRenderi18n from '@/setup-utils/SwiftDocCRenderi18n';
+import FloatingVue from 'floating-vue';
 
 Vue.use(SwiftDocCRenderPlugin);
 Vue.use(Router);
 Vue.use(VueI18n);
+Vue.use(FloatingVue, {
+  themes: {
+    'quick-help': {
+      $extend: 'tooltip',
+      delay: {
+        show: 200,
+        hide: 200,
+      },
+      triggers: ['hover', 'touch'],
+      popperTriggers: ['hover'],
+      overflowPadding: 10,
+    },
+  },
+});
 
 new Vue({
   router: SwiftDocCRenderRouter(),
