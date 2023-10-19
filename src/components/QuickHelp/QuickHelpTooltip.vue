@@ -2,12 +2,12 @@
   <VTooltip
     class="QuickHelpTooltip"
     theme="quick-help"
-    handle-resize
-    autoHide
+    @hide="$refs.qhContent?.stopFetching()"
+    @apply-show="$refs.qhContent?.fetchData()"
   >
     <slot />
     <template #popper>
-      <QuickHelpContent :url="url" />
+      <QuickHelpContent ref="qhContent" :url="url" />
     </template>
   </VTooltip>
 </template>

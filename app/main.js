@@ -24,10 +24,15 @@ Vue.use(VueI18n);
 Vue.use(FloatingVue, {
   themes: {
     'quick-help': {
-      $extend: 'tooltip',
+      // Default dropdown placement relative to target element
+      placement: 'top',
+      // Update popper on content resize
+      handleResize: true,
+      // Hide on clock outside
+      autoHide: true,
       delay: {
         show: 200,
-        hide: 200,
+        hide: 0,
       },
       triggers: ['hover', 'touch'],
       popperTriggers: ['hover'],

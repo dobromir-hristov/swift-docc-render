@@ -53,12 +53,12 @@ export default {
       isFetching: false,
     };
   },
-  created() {
-    this.fetchData();
-  },
-  beforeDestroy() {
-    this.stopFetching();
-  },
+  // created() {
+  //   this.fetchData();
+  // },
+  // beforeDestroy() {
+  //   this.stopFetching();
+  // },
   computed: {
     topicProps: ({ json }) => {
       const props = extractProps(json);
