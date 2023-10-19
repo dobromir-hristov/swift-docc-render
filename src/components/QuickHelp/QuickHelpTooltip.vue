@@ -2,10 +2,14 @@
   <VTooltip
     class="QuickHelpTooltip"
     theme="quick-help"
-    @hide="$refs.qhContent?.stopFetching()"
+    @hide="handleHide"
     @apply-show="$refs.qhContent?.fetchData()"
   >
-    <slot />
+    <template #default="{ show }">
+      <span ref="trigger" @keydown.alt.up.exact.prevent="handleAltUp(show)">
+        <slot />
+      </span>
+    </template>
     <template #popper>
       <QuickHelpContent ref="qhContent" :url="url" />
     </template>
@@ -14,14 +18,37 @@
 
 <script>
 import QuickHelpContent from '@/components/QuickHelp/QuickHelpContent.vue';
+import { focusableSelector } from '@/utils/TabManager';
 
 export default {
   name: 'QuickHelpTooltip',
   components: { QuickHelpContent },
+  data() {
+    return {
+      openViaShortcut: false,
+    };
+  },
   props: {
     url: {
       type: String,
       default: '',
+    },
+  },
+  methods: {
+    handleAltUp(show) {
+      show();
+      this.openViaShortcut = true;
+    },
+    handleHide() {
+      this.$refs.qhContent?.stopFetching();
+      // re-focus the trigger
+      if (this.openViaShortcut) {
+        const firstTabbable = this.$refs.trigger.querySelector(focusableSelector);
+        if (firstTabbable) {
+          firstTabbable.focus();
+        }
+      }
+      this.openViaShortcut = false;
     },
   },
 };
