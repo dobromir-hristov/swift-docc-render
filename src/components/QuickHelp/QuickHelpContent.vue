@@ -44,6 +44,7 @@ export default {
   provide() {
     return {
       store: this.store,
+      shouldShowQuickHelp: false,
     };
   },
   data() {

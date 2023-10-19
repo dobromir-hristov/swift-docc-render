@@ -324,6 +324,7 @@ export default {
   provide() {
     return {
       store: this.store,
+      shouldShowQuickHelp: !this.isTargetIDE,
     };
   },
   inject: {

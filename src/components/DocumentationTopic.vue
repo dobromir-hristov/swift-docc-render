@@ -380,7 +380,6 @@ export default {
       interfaceLanguage: this.interfaceLanguage,
       symbolKind: this.symbolKind,
       enableMinimized: this.enableMinimized,
-      shouldShowQuickHelp: !this.isTargetIDE,
     };
   },
   data() {
