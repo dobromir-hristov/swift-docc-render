@@ -6,7 +6,7 @@
     @apply-show="$refs.qhContent?.fetchData()"
   >
     <template #default="{ show }">
-      <span ref="trigger" @keydown.alt.up.exact.prevent="handleAltUp(show)">
+      <span ref="trigger" @keydown.alt.up.exact.prevent="handleAltUp(show)" @click.capture.prevent>
         <slot />
       </span>
     </template>
@@ -62,7 +62,10 @@ export default {
 }
 
 .QuickHelpTooltip :deep(a) {
+  color: var(--color-figure-gray-tertiary);
   text-decoration: underline;
   text-decoration-style: dotted;
+  text-underline-offset: 5px;
+  cursor: help;
 }
 </style>
