@@ -8,7 +8,7 @@
   See https://swift.org/CONTRIBUTORS.txt for Swift project authors
 -->
 <template>
-  <div class="OnThisPageStickyContainer">
+  <div class="OnThisPageStickyContainer" :style="{ '--top': top + 'px' }">
     <slot />
   </div>
 </template>
@@ -17,6 +17,24 @@
 
 export default {
   name: 'OnThisPageStickyContainer',
+  data() {
+    return {
+      top: 0,
+    };
+  },
+  mounted() {
+    window.addEventListener('scroll', this.onScroll, false);
+    this.$once('hook:beforeDestroy', () => {
+      window.removeEventListener('scroll', this.onScroll);
+    });
+    this.onScroll();
+  },
+  methods: {
+    onScroll() {
+      const { top } = this.$el.getBoundingClientRect();
+      this.top = top;
+    },
+  },
 };
 </script>
 
@@ -34,8 +52,10 @@ export default {
   padding-right: $nav-padding;
   box-sizing: border-box;
   padding-bottom: var(--spacing-stacked-margin-small);
-  max-height: calc(100vh - #{$top});
+  max-height: calc(100vh - 13px - var(--top));
   overflow: auto;
+  display: flex;
+  flex-flow: column;
 
   @media print {
     display: none;

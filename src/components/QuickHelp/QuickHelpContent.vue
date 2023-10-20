@@ -129,6 +129,8 @@ export default {
   border-left: 4px solid var(--color-fill-light-blue-secondary);
   padding-left: 8px;
   padding-right: 8px;
+  min-height: 0;
+  overflow: auto;
 
   .loading {
     padding: 8px 8px 8px 0;
