@@ -42,10 +42,10 @@
         >
           <component :is="titleBreakComponent">{{ title }}</component>
           <template #after v-if="isSymbolDeprecated || isSymbolBeta">
-          <small
-          :class="tagName"
-          :data-tag-name="tagName"
-          />
+            <small
+              :class="tagName"
+              :data-tag-name="tagName"
+            />
           </template>
         </Title>
         <Abstract
@@ -134,6 +134,7 @@
         <template v-if="enableOnThisPageNav">
           <OnThisPageStickyContainer v-show="isOnThisPageNavVisible">
             <OnThisPageNav v-if="topicState.onThisPageSections.length > 2" />
+            <QuickHelpContent />
           </OnThisPageStickyContainer>
         </template>
       </div>
@@ -163,6 +164,7 @@ import OnThisPageNav from 'theme/components/OnThisPageNav.vue';
 import { SectionKind } from 'docc-render/constants/PrimaryContentSection';
 import Declaration from 'docc-render/components/DocumentationTopic/PrimaryContent/Declaration.vue';
 import { StandardColors } from 'docc-render/constants/StandardColors';
+import QuickHelpContent from 'docc-render/components/QuickHelp/QuickHelpContent.vue';
 import Abstract from './DocumentationTopic/Description/Abstract.vue';
 import ContentNode from './DocumentationTopic/ContentNode.vue';
 import CallToActionButton from './CallToActionButton.vue';
@@ -199,6 +201,7 @@ export default {
     },
   },
   components: {
+    QuickHelpContent,
     Declaration,
     OnThisPageStickyContainer,
     OnThisPageNav,
@@ -404,7 +407,11 @@ export default {
         0,
       );
     },
-    shouldShowAvailability: ({ platforms, technologies, enableMinimized }) => (
+    shouldShowAvailability: ({
+      platforms,
+      technologies,
+      enableMinimized,
+    }) => (
       ((platforms || []).length || (technologies || []).length) && !enableMinimized
     ),
     hasBetaContent:
@@ -412,7 +419,10 @@ export default {
         && platforms.length
         && platforms.some(platform => platform.beta),
     pageTitle: ({ title }) => title,
-    pageDescription: ({ abstract, extractFirstParagraphText }) => (
+    pageDescription: ({
+      abstract,
+      extractFirstParagraphText,
+    }) => (
       abstract ? extractFirstParagraphText(abstract) : null
     ),
     shouldShowLanguageSwitcher: ({
@@ -617,15 +627,16 @@ export default {
       && this.objcPath && this.$route.query.language !== Language.objectiveC.key.url) {
       const { query } = this.$route;
 
-      this.$nextTick().then(() => {
-        this.$router.replace({
-          path: normalizeRelativePath(this.objcPath),
-          query: {
-            ...query,
-            language: Language.objectiveC.key.url,
-          },
+      this.$nextTick()
+        .then(() => {
+          this.$router.replace({
+            path: normalizeRelativePath(this.objcPath),
+            query: {
+              ...query,
+              language: Language.objectiveC.key.url,
+            },
+          });
         });
-      });
     }
 
     AppStore.setAvailableLocales(this.availableLocales || []);

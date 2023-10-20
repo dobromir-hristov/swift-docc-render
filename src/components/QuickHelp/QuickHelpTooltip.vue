@@ -1,31 +1,25 @@
 <template>
-  <VTooltip
+  <span
     class="QuickHelpTooltip"
-    theme="quick-help"
-    @hide="handleHide"
-    @apply-show="$refs.qhContent?.fetchData()"
+    :class="{ 'qh-highlighted': isHighlighted }"
+    @mouseenter="initiateQuickHelp"
+    @mouseleave="stopQuickHelp"
+    @focusin="initiateQuickHelp"
+    @focusout="stopQuickHelp"
   >
-    <template #default="{ show }">
-      <span ref="trigger" @keydown.alt.up.exact.prevent="handleAltUp(show)" @click.capture.prevent>
-        <slot />
-      </span>
-    </template>
-    <template #popper>
-      <QuickHelpContent ref="qhContent" :url="url" />
-    </template>
-  </VTooltip>
+    <slot />
+  </span>
 </template>
 
 <script>
-import QuickHelpContent from '@/components/QuickHelp/QuickHelpContent.vue';
-import { focusableSelector } from '@/utils/TabManager';
+
+import QuickHelpStore from '@/stores/QuickHelpStore';
 
 export default {
   name: 'QuickHelpTooltip',
-  components: { QuickHelpContent },
   data() {
     return {
-      openViaShortcut: false,
+      timeout: 0,
     };
   },
   props: {
@@ -34,21 +28,19 @@ export default {
       default: '',
     },
   },
-  methods: {
-    handleAltUp(show) {
-      show();
-      this.openViaShortcut = true;
+  computed: {
+    isHighlighted({ url }) {
+      return url === QuickHelpStore.state.url;
     },
-    handleHide() {
-      this.$refs.qhContent?.stopFetching();
-      // re-focus the trigger
-      if (this.openViaShortcut) {
-        const firstTabbable = this.$refs.trigger.querySelector(focusableSelector);
-        if (firstTabbable) {
-          firstTabbable.focus();
-        }
-      }
-      this.openViaShortcut = false;
+  },
+  methods: {
+    initiateQuickHelp() {
+      this.timeout = setTimeout(() => {
+        QuickHelpStore.setUrl(this.url);
+      }, 250);
+    },
+    stopQuickHelp() {
+      clearTimeout(this.timeout);
     },
   },
 };
@@ -58,14 +50,19 @@ export default {
 @import 'docc-render/styles/_core.scss';
 
 .QuickHelpTooltip {
-  display: inline-block;
-}
+  display: inline;
 
-.QuickHelpTooltip :deep(a) {
-  color: var(--color-figure-gray-tertiary);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 5px;
-  cursor: help;
+  &.qh-highlighted {
+    &:deep(a code) {
+      background: var(--color-fill-tertiary);
+      box-shadow: 0 0 0 1px var(--color-figure-gray-secondary-alt);
+    }
+  }
+
+  &:deep(a code) {
+    background: var(--color-fill-tertiary);
+    padding: 2px 4px;
+    border-radius: 2px;
+  }
 }
 </style>

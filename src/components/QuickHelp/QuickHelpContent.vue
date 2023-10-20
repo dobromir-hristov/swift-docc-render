@@ -1,6 +1,6 @@
 <template>
-  <div class="QuickHelpContent">
-    <div v-if="isFetching">
+  <div class="QuickHelpContent" v-if="url">
+    <div class="loading" v-if="isFetching">
       Loading...
     </div>
     <div v-else-if="json">
@@ -18,6 +18,7 @@
 <script>
 import { clone, fetchDataForPreview } from '@/utils/data';
 import DocumentationTopicStore from '@/stores/DocumentationTopicStore';
+import QuickHelpStore from '@/stores/QuickHelpStore';
 
 let extractProps = () => ({});
 
@@ -28,19 +29,13 @@ const DocumentationTopic = import('@/components/DocumentationTopic.vue').then((c
 
 const HERO_KIND = 'hero';
 
-const QuickHelpStore = {
+const QuickHelpStoreTopic = {
   ...DocumentationTopicStore,
   state: clone(DocumentationTopicStore.state),
 };
 export default {
   name: 'QuickHelpContent',
   components: { DocumentationTopic: () => DocumentationTopic },
-  props: {
-    url: {
-      type: String,
-      required: true,
-    },
-  },
   provide() {
     return {
       store: this.store,
@@ -49,17 +44,23 @@ export default {
   },
   data() {
     return {
-      store: QuickHelpStore,
+      store: QuickHelpStoreTopic,
       json: null,
       isFetching: false,
     };
   },
+  watch: {
+    url: {
+      immediate: true,
+      handler: 'fetchData',
+    },
+  },
   // created() {
   //   this.fetchData();
   // },
-  // beforeDestroy() {
-  //   this.stopFetching();
-  // },
+  beforeDestroy() {
+    this.stopFetching();
+  },
   computed: {
     topicProps: ({ json }) => {
       const props = extractProps(json);
@@ -82,6 +83,7 @@ export default {
         abstract,
       };
     },
+    url: () => QuickHelpStore.state.url,
   },
   methods: {
     stopFetching() {
@@ -89,16 +91,21 @@ export default {
         this.abortController.abort();
       }
     },
-    async fetchData() {
-      this.isFetching = true;
+    async fetchData(url) {
+      if (!url) return;
       this.stopFetching();
       this.abortController = new AbortController();
+      const timeout = setTimeout(() => {
+        this.isFetching = true;
+      }, 1000);
       try {
-        this.json = await fetchDataForPreview(this.url, {
+        this.json = await fetchDataForPreview(url, {
           signal: this.abortController.signal,
         });
+        clearTimeout(timeout);
         this.isFetching = false;
       } catch (e) {
+        clearTimeout(timeout);
         if (e.name === 'AbortError') {
           return;
         }
@@ -112,4 +119,23 @@ export default {
 <style scoped lang='scss'>
 @import 'docc-render/styles/_core.scss';
 
+.QuickHelpContent {
+  --doc-hero-right-offset: 0px;
+  margin-top: $article-stacked-margin-small;
+  background: var(--color-fill-secondary);
+  border-left: 4px solid var(--color-fill-light-blue-secondary);
+  padding-left: 8px;
+  padding-right: 8px;
+
+  .loading {
+    padding: 8px 8px 8px 0;
+  }
+
+  :deep() {
+    .minimized-hero, .doc-content .minimized-container {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+  }
+}
 </style>
