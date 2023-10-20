@@ -9,7 +9,7 @@
         enableMinimized
       />
     </div>
-    <div v-else>
+    <div v-else-if="error">
       Error...
     </div>
   </div>
@@ -47,6 +47,7 @@ export default {
       store: QuickHelpStoreTopic,
       json: null,
       isFetching: false,
+      error: false,
     };
   },
   watch: {
@@ -95,6 +96,7 @@ export default {
       if (!url) return;
       this.stopFetching();
       this.abortController = new AbortController();
+      this.error = false;
       const timeout = setTimeout(() => {
         this.isFetching = true;
       }, 1000);
@@ -109,6 +111,7 @@ export default {
         if (e.name === 'AbortError') {
           return;
         }
+        this.error = true;
         this.isFetching = false;
       }
     },
