@@ -55,6 +55,7 @@ export default {
   max-height: calc(100vh - 13px - var(--top));
   overflow: auto;
   display: flex;
+  gap: $article-stacked-margin-small;
   flex-flow: column;
 
   @media print {

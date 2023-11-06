@@ -54,15 +54,9 @@ export default {
 
   &.qh-highlighted {
     &:deep(a code) {
-      background: var(--color-fill-tertiary);
-      box-shadow: 0 0 0 1px var(--color-figure-gray-secondary-alt);
+      background: var(--color-fill-gray-tertiary);
+      box-shadow: 0 0 0 2px var(--color-fill-gray-tertiary);
     }
-  }
-
-  &:deep(a code) {
-    background: var(--color-fill-tertiary);
-    padding: 2px 4px;
-    border-radius: 2px;
   }
 }
 </style>

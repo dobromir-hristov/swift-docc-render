@@ -12,6 +12,7 @@ export default {
   state: {
     onThisPageSections: [],
     currentPageAnchor: null,
+    onThisPageCollapsed: false,
   },
   resetPageSections() {
     this.state.onThisPageSections = [];
@@ -32,5 +33,11 @@ export default {
     const i = this.state.onThisPageSections.findIndex(({ anchor }) => anchor === sectionAnchor);
     if (i === -1) return;
     this.state.currentPageAnchor = sectionAnchor;
+  },
+  collapseOnThisPage() {
+    this.toggleOnThisPage(true);
+  },
+  toggleOnThisPage(value = !this.state.onThisPageCollapsed) {
+    this.state.onThisPageCollapsed = value;
   },
 };

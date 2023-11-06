@@ -10,21 +10,26 @@
 <template>
   <div class="OnThisPageNav">
     <ul class="items">
-      <li
-        v-for="item in onThisPageSections"
-        :key="item.anchor"
-        :class="getItemClasses(item)"
+      <OnThisPageNavItem
+        :item="onThisPageSections[0]"
+        :current="currentPageAnchor"
       >
-        <router-link
-          :to="item.url"
-          class="base-link"
-          @click.native="handleFocusAndScroll(item.anchor)"
-        >
-          <component :is="getWrapperComponent(item)">
-            {{ getTextContent(item) }}
-          </component>
-        </router-link>
-      </li>
+        <template #post>
+          <button class="toggle" @click="store.toggleOnThisPage()">
+            <InlineChevronDownIcon
+              class="icon-inline toggle-icon"
+              :class="{ flip: collapsed }" />
+          </button>
+        </template>
+      </OnThisPageNavItem>
+      <template v-if="!collapsed">
+        <OnThisPageNavItem
+          v-for="item in collapsableSections"
+          :key="item.anchor"
+          :item="item"
+          :current="currentPageAnchor"
+        />
+      </template>
     </ul>
   </div>
 </template>
@@ -32,28 +37,41 @@
 <script>
 import throttle from 'docc-render/utils/throttle';
 import { waitFrames } from 'docc-render/utils/loading';
-import ScrollToElement from 'docc-render/mixins/scrollToElement';
 import { buildUrl } from 'docc-render/utils/url-helper';
-import WordBreak from 'docc-render/components/WordBreak.vue';
+import OnThisPageNavItem from '@/components/OnThisPageNavItem.vue';
+import InlineChevronDownIcon from '@/components/Icons/InlineChevronDownIcon.vue';
 
 export default {
   name: 'OnThisPageNav',
-  components: { WordBreak },
-  mixins: [ScrollToElement],
+  components: {
+    InlineChevronDownIcon,
+    OnThisPageNavItem,
+  },
   inject: {
     store: {
       default() {
         return {
-          state: { onThisPageSections: [], currentPageAnchor: null },
+          state: {
+            onThisPageSections: [],
+            currentPageAnchor: null,
+            onThisPageCollapsed: false,
+          },
         };
       },
     },
   },
   computed: {
-    onThisPageSections: ({ store, $route }) => store.state.onThisPageSections.map(item => ({
-      ...item,
-      url: buildUrl(`#${item.anchor}`, $route.query),
-    })),
+    collapsed: ({ store }) => store.state.onThisPageCollapsed,
+    onThisPageSections: ({
+      store,
+      $route,
+      collapsed,
+    }) => store.state.onThisPageSections.slice(0, collapsed ? 1 : undefined)
+      .map(item => ({
+        ...item,
+        url: buildUrl(`#${item.anchor}`, $route.query),
+      })),
+    collapsableSections: ({ onThisPageSections }) => onThisPageSections.slice(1),
     currentPageAnchor: ({ store }) => store.state.currentPageAnchor,
   },
   async mounted() {
@@ -77,7 +95,10 @@ export default {
       const len = this.onThisPageSections.length;
       if (!len) return;
       // get the point at which we intercept, 1/3 of screen
-      const { scrollY, innerHeight } = window;
+      const {
+        scrollY,
+        innerHeight,
+      } = window;
       const { scrollHeight } = document.body;
       const isBottom = scrollY + innerHeight >= scrollHeight;
       const isTop = scrollY <= 0;
@@ -94,7 +115,9 @@ export default {
       for (i = 0; i < len; i += 1) {
         item = this.onThisPageSections[i];
         // get the element's offset
-        const { offsetTop } = document.getElementById(item.anchor);
+        const tempItem = document.getElementById(item.anchor);
+        if (!tempItem) break;
+        const { offsetTop } = item;
         // if the element is above the intersection point, it is "active".
         if (offsetTop < intersectionPoint) {
           nearestAnchor = item.anchor;
@@ -108,27 +131,6 @@ export default {
         this.store.setCurrentPageSection(nearestAnchor);
       }
     }, 100),
-    /**
-     * Returns whether the current item or some of its children is active.
-     * @param item
-     * @returns {boolean}
-     */
-    checkIsActive(item) {
-      return item.anchor === this.currentPageAnchor;
-    },
-    getItemClasses(item) {
-      return {
-        active: this.checkIsActive(item),
-        'parent-item': item.level <= 2,
-        'child-item': item.level === 3,
-      };
-    },
-    getTextContent(item) {
-      return item.i18n ? this.$t(item.title) : item.title;
-    },
-    getWrapperComponent(item) {
-      return item.isSymbol ? WordBreak : 'span';
-    },
   },
 };
 </script>
@@ -140,25 +142,20 @@ ul {
   list-style-type: none;
   margin: 0;
 
-  li:first-child .base-link {
+  :deep(li:first-child .base-link) {
     margin-top: 0;
   }
-}
 
-.parent-item .base-link {
-  font-weight: $font-weight-bold;
-}
+  .toggle {
+    margin-left: 1rem;
 
-.base-link {
-  color: var(--color-figure-gray-secondary);
-  @include font-styles(body-reduced-tight);
-  display: inline-block;
-  margin: 5px 0;
-  transition: color 0.15s ease-in;
-  max-width: 100%;
-}
+    .toggle-icon {
+      width: 1rem;
 
-.active .base-link {
-  color: var(--color-text);
+      &.flip {
+        transform: rotate(180deg);
+      }
+    }
+  }
 }
 </style>

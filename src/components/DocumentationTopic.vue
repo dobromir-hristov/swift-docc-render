@@ -138,7 +138,7 @@
           </OnThisPageStickyContainer>
         </template>
       </div>
-      <BetaLegalText v-if="!isTargetIDE && hasBetaContent" />
+      <BetaLegalText v-if="!isTargetIDE && hasBetaContent && !hidePrimaryContentSection" />
     </component>
     <div aria-live="polite" class="visuallyhidden">
       {{ $t('documentation.current-page', { title: pageTitle }) }}
@@ -373,6 +373,10 @@ export default {
       type: Array,
       required: false,
     },
+    hidePrimaryContentSection: {
+      type: Boolean,
+      default: false,
+    },
   },
   provide() {
     // NOTE: this is not reactive: if this.identifier change, the provided value
@@ -524,7 +528,11 @@ export default {
       topicState.contentWidth > ON_THIS_PAGE_CONTAINER_BREAKPOINT
     ),
     disableMetadata: ({ enableMinimized }) => enableMinimized,
-    primaryContentSectionsSanitized({ primaryContentSections = [] }) {
+    primaryContentSectionsSanitized({
+      primaryContentSections = [],
+      hidePrimaryContentSection,
+    }) {
+      if (hidePrimaryContentSection) return [];
       return primaryContentSections.filter(({ kind }) => kind !== SectionKind.declarations);
     },
     declarations({ primaryContentSections = [] }) {

@@ -4,13 +4,17 @@
       Loading...
     </div>
     <div v-else-if="json">
+      <button class="hide-qh" @click="hideQuickHelp">
+        <InlineCloseIcon class="icon-inline" />
+      </button>
       <DocumentationTopic
         v-bind="topicProps"
         enableMinimized
+        hidePrimaryContentSection
       />
     </div>
     <div v-else-if="error">
-      Error...
+      Error fetching help content
     </div>
   </div>
 </template>
@@ -19,6 +23,7 @@
 import { clone, fetchDataForPreview } from '@/utils/data';
 import DocumentationTopicStore from '@/stores/DocumentationTopicStore';
 import QuickHelpStore from '@/stores/QuickHelpStore';
+import InlineCloseIcon from '@/components/Icons/InlineCloseIcon.vue';
 
 let extractProps = () => ({});
 
@@ -35,12 +40,18 @@ const QuickHelpStoreTopic = {
 };
 export default {
   name: 'QuickHelpContent',
-  components: { DocumentationTopic: () => DocumentationTopic },
+  components: {
+    InlineCloseIcon,
+    DocumentationTopic: () => DocumentationTopic,
+  },
   provide() {
     return {
       store: this.store,
       shouldShowQuickHelp: false,
     };
+  },
+  inject: {
+    docStore: 'store',
   },
   data() {
     return {
@@ -56,9 +67,6 @@ export default {
       handler: 'fetchData',
     },
   },
-  // created() {
-  //   this.fetchData();
-  // },
   beforeDestroy() {
     this.stopFetching();
   },
@@ -106,6 +114,7 @@ export default {
         });
         clearTimeout(timeout);
         this.isFetching = false;
+        this.collapseOnThisPageIfNeeded();
       } catch (e) {
         clearTimeout(timeout);
         if (e.name === 'AbortError') {
@@ -114,6 +123,19 @@ export default {
         this.error = true;
         this.isFetching = false;
       }
+    },
+    async collapseOnThisPageIfNeeded() {
+      await this.$nextTick();
+      // TODO provide this class name somehow from parent...
+      const container = document.querySelector('.OnThisPageStickyContainer');
+      if (container.scrollHeight > container.clientHeight) {
+        this.docStore.collapseOnThisPage();
+      }
+    },
+    hideQuickHelp() {
+      this.json = null;
+      QuickHelpStore.resetStore();
+      // TODO: Should we re-expand OTP, if we collapsed it?
     },
   },
 };
@@ -124,13 +146,20 @@ export default {
 
 .QuickHelpContent {
   --doc-hero-right-offset: 0px;
-  margin-top: $article-stacked-margin-small;
   background: var(--color-fill-secondary);
   border-left: 4px solid var(--color-fill-light-blue-secondary);
   padding-left: 8px;
   padding-right: 8px;
-  min-height: 0;
-  overflow: auto;
+  position: relative;
+
+  .hide-qh {
+    width: 1rem;
+    position: absolute;
+    right: 0;
+    top: -5px;
+    z-index: 10;
+    padding: 10px;
+  }
 
   .loading {
     padding: 8px 8px 8px 0;
